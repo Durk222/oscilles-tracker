@@ -56,9 +56,10 @@ class AudioEngine {
         osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
 
         const gainNode = this.audioCtx.createGain();
-        let volVal = 0.5;
+        let volVal = 0.5; // Por defecto
         if (volumeHex && volumeHex !== '--') {
-            volVal = parseInt(volumeHex, 16) / 255;
+        // Si usas Hexadecimal:
+        volVal = parseInt(volumeHex, 16) / 100; 
         }
         
         gainNode.gain.setValueAtTime(volVal, this.audioCtx.currentTime);
@@ -320,19 +321,43 @@ class Track {
     
     if (e.key === 'Delete' || e.key === 'Backspace') {
         this.updateNoteCell(index, '---');
+        this.updateVolCell(index, '--'); // Limpia volumen si borras nota
     } else if (KEYBOARD_MAP[key]) {
-        // Obtenemos los datos del nuevo mapa
         const noteInfo = KEYBOARD_MAP[key];
-        const fullNote = noteInfo.note + noteInfo.oct; // Ej: "C-" + 5 = "C-5"
+        const fullNote = noteInfo.note + noteInfo.oct;
         
+        // Insertamos Nota
         this.updateNoteCell(index, fullNote);
-        this.audioEngine.playNote(fullNote, '01', 'FF', this.trackGain);
         
-        // Auto-avance
+        // Insertamos Volumen por defecto (64 hex = 100 decimal aprox)
+        // Si prefieres usar decimal puro (100), pon '100'
+        this.updateVolCell(index, '64'); 
+        
+        this.audioEngine.playNote(fullNote, '01', '64', this.trackGain);
+        
         const nextRow = container.children[index + 1];
         if (nextRow) nextRow.querySelector('.note-cell').focus();
-            }
+             }
         });
+        const volInput = row.querySelector('.vol-cell');
+
+volInput.addEventListener('keydown', (e) => {
+    // Si es un número del 0 al 9
+    if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        const volMap = {
+            '1': '0A', '2': '14', '3': '1E', '4': '28', '5': '32', 
+            '6': '3C', '7': '46', '8': '50', '9': '5A', '0': '64'
+        };
+        const newVol = volMap[e.key];
+        this.updateVolCell(index, newVol);
+        
+        // Auto-avanzar al siguiente volumen
+        const nextRow = container.children[index + 1];
+        if (nextRow) nextRow.querySelector('.vol-cell').focus();
+          }
+         // Si el usuario escribe manualmente (letras/números), permitimos el comportamiento normal
+      });
     }
 
     updateNoteCell(index, noteValue) {
@@ -359,6 +384,13 @@ class Track {
         b = Math.max(0, Math.min(255, b + percent));
         return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
+    updateVolCell(index, volValue) {
+    this.patternData[index].vol = volValue;
+    const volInputs = this.element.querySelectorAll('.vol-cell');
+    if (volInputs[index]) {
+        volInputs[index].value = volValue;
+    }
+  }
 }
 
 // --- CONTROLADOR PRINCIPAL ---
