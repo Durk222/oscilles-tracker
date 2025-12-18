@@ -1,201 +1,234 @@
-// Esperar a que se cargue el DOM y la librería de gráficos
+//OSCILLESTRACKER SCRIPT MAIN. . .
 document.addEventListener('DOMContentLoaded', () => {
-    // Asegurar que LCJS está cargado
+    // Verificar carga de librería
     if (typeof lcjs === 'undefined') {
-        console.error('LightningChart JS no se ha cargado correctamente.');
+        alert('Error: LightningChart JS no cargó. Revisa tu conexión.');
         return;
     }
-    // Iniciar la aplicación
     const app = new AppController();
     app.init();
 });
 
-// --- Clases Auxiliares ---
+// --- Configuración de Teclado (Estilo Tracker) ---
+const KEYBOARD_MAP = {
+    'z': 'C-', 's': 'C#', 'x': 'D-', 'd': 'D#', 'c': 'E-', 'v': 'F-',
+    'g': 'F#', 'b': 'G-', 'h': 'G#', 'n': 'A-', 'j': 'A#', 'm': 'B-',
+    ',': 'C-' // Octava siguiente
+};
 
-// Clase para manejar el Audio Web API
+// --- MOTOR DE AUDIO ---
 class AudioEngine {
     constructor() {
-        this.audioCtx = null;
-        this.masterGain = null;
-        this.isPlaying = false;
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.audioCtx.createGain();
+        this.masterGain.gain.value = 0.5;
+        this.masterGain.connect(this.audioCtx.destination);
     }
 
-    init() {
-        if (!this.audioCtx) {
-            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            this.masterGain = this.audioCtx.createGain();
-            this.masterGain.gain.setValueAtTime(0.5, this.audioCtx.currentTime);
-            this.masterGain.connect(this.audioCtx.destination);
-            console.log('Motor de Audio Iniciado');
-        }
+    // Método vital para desbloquear el audio en navegadores modernos
+    async checkContext() {
         if (this.audioCtx.state === 'suspended') {
-            this.audioCtx.resume();
+            await this.audioCtx.resume();
         }
     }
 
-    // Tocar una nota simple
-    playNote(noteName, instrumentId, volume, trackGainNode) {
-        if (!this.audioCtx) return;
+    playNote(noteName, instrumentId, volumeHex, trackGainNode) {
+        this.checkContext(); // Intentar desbloquear siempre que se intente tocar
         if (noteName === '---') return;
 
         const freq = this.noteToFreq(noteName);
         if (!freq) return;
 
         const osc = this.audioCtx.createOscillator();
-        osc.type = 'sawtooth'; // Un sonido de sintetizador básico
+        osc.type = 'sawtooth'; 
         osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
 
         const gainNode = this.audioCtx.createGain();
-        // Volumen simple: 0-99 -> 0.0-1.0
-        const vol = parseInt(volume, 16) / 255 || 0.5;
-        gainNode.gain.setValueAtTime(vol, this.audioCtx.currentTime);
-        // Decay simple para que no sea un tono infinito
-        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.5);
+        // Convertir volumen Hex (00-FF) a 0.0-1.0
+        let volVal = 0.5;
+        if (volumeHex && volumeHex !== '--') {
+            volVal = parseInt(volumeHex, 16) / 255;
+        }
+        
+        gainNode.gain.setValueAtTime(volVal, this.audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.4);
 
         osc.connect(gainNode);
-        // Conectar al gain de la pista para que el analizador lo capte
         gainNode.connect(trackGainNode);
 
         osc.start();
         osc.stop(this.audioCtx.currentTime + 0.5);
     }
 
-    // Convertir nombre de nota (ej. C-4) a frecuencia
     noteToFreq(note) {
+        if (!note || note.length < 3) return null;
         const notes = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
         const name = note.slice(0, 2);
-        const octave = parseInt(note.slice(2));
+        const octave = parseInt(note.charAt(2)); // C-4 -> 4
         const index = notes.indexOf(name);
-        if (index === -1) return null;
-        // Fórmula estándar de frecuencia MIDI: f = 440 * 2^((n-69)/12)
+        
+        if (index === -1 || isNaN(octave)) return null;
+        
         const midiNote = index + (octave + 1) * 12;
         return 440 * Math.pow(2, (midiNote - 69) / 12);
     }
+    
+    // Helper para obtener valor MIDI numérico (para el visualizador)
+    getMidiNumber(note) {
+        const notes = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
+        const name = note.slice(0, 2);
+        const octave = parseInt(note.charAt(2));
+        if (notes.indexOf(name) === -1) return 0;
+        return notes.indexOf(name) + (octave + 1) * 12;
+    }
 }
 
-// Clase para manejar la visualización MIDI (Piano Roll)
+// --- VISUALIZADOR MIDI (Piano Roll Vertical) ---
 class MidiVisualizer {
-    constructor(canvas, color) {
+    constructor(canvas, color, audioEngine) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.color = color;
+        this.audioEngine = audioEngine;
     }
 
     setColor(newColor) {
         this.color = newColor;
-        this.draw([]); // Redibujar
     }
 
     draw(patternData) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        const rowHeight = 15; // Altura de cada fila en el tracker
-        const noteWidth = this.canvas.width / 12; // Ancho de una nota
+        // Limpiar canvas
+        this.ctx.fillStyle = '#000'; 
+        this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
+
+        const rowHeight = 15; 
+        // Rango de visualización: De C-1 (24) a C-8 (108) = 84 notas aprox
+        const minMidi = 24; 
+        const maxMidi = 96; 
+        const midiRange = maxMidi - minMidi;
 
         patternData.forEach((row, rowIndex) => {
             if (row.note && row.note !== '---') {
-                const noteName = row.note.slice(0, 2);
-                const notes = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
-                const noteIndex = notes.indexOf(noteName);
+                const midiNum = this.audioEngine.getMidiNumber(row.note);
+                
+                // Normalizar posición X basada en la altura de la nota (0 a 1)
+                let normalizedPos = (midiNum - minMidi) / midiRange;
+                // Clamp (limitar entre 0 y 1)
+                normalizedPos = Math.max(0, Math.min(1, normalizedPos));
 
-                if (noteIndex !== -1) {
-                    const x = noteIndex * noteWidth;
-                    const y = rowIndex * rowHeight;
-                    
-                    // Dibujar la nota con el color de la pista
-                    this.ctx.fillStyle = this.color;
-                    this.ctx.fillRect(x, y, noteWidth - 1, rowHeight - 1);
-                }
+                const x = normalizedPos * (this.canvas.width - 10); // -10 para que no se salga
+                const y = rowIndex * rowHeight;
+                
+                this.ctx.fillStyle = this.color;
+                this.ctx.fillRect(x, y, 8, rowHeight - 1); // Nota de 8px de ancho
+                
+                // Brillo extra
+                this.ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                this.ctx.fillRect(x+2, y+2, 4, rowHeight - 4);
             }
         });
     }
 }
 
-// Clase para manejar la visualización de Audio (LightningChart)
+// --- VISUALIZADOR DE AUDIO (LightningChart) ---
 class AudioVisualizer {
     constructor(container, analyserNode, color) {
         this.container = container;
         this.analyser = analyserNode;
         this.color = color;
         this.chart = null;
-        this.series = null;
+        this.lineSeries = null;
         this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        this.initChart();
+        
+        // Esperar un tick para asegurar que el contenedor está renderizado en el DOM
+        setTimeout(() => this.initChart(), 0);
     }
 
     initChart() {
-        const { lightningChart, AxisTickStrategies, Themes, ColorHEX } = lcjs;
+        const { lightningChart, AxisTickStrategies, Themes, ColorHEX, SolidLine, SolidFill } = lcjs;
 
-        // Crear el gráfico dentro del contenedor
+        // Crear gráfico
         this.chart = lightningChart().ChartXY({
             container: this.container,
-            theme: Themes.darkGold // Un tema oscuro base
+            theme: Themes.darkGold,
+            disableAnimations: true // Rendimiento
         })
         .setTitle('')
-        .setAutoCursorMode('disabled') // Desactivar cursor para rendimiento
-        .setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+        .setPadding(0)
+        .setBackgroundFillStyle(new SolidFill({ color: ColorHEX('#000000') }));
 
-        // Configurar ejes para que no se vean
-        this.chart.getDefaultAxisX().setTickStrategy(AxisTickStrategies.Empty).setStrokeStyle(null);
-        this.chart.getDefaultAxisY().setTickStrategy(AxisTickStrategies.Empty).setStrokeStyle(null).setInterval(-128, 128);
+        // Ocultar ejes
+        this.chart.getDefaultAxisX().setTickStrategy(AxisTickStrategies.Empty).setStrokeStyle(emptyLine => emptyLine.setFillStyle(new SolidFill({ color: ColorHEX('#000') })));
+        this.chart.getDefaultAxisY().setTickStrategy(AxisTickStrategies.Empty).setScrollStrategy(undefined).setInterval(-140, 140);
 
-        // Crear la serie de líneas para la onda
-        this.series = this.chart.addLineSeries({
+        // Crear la serie de línea CORRECTAMENTE
+        this.lineSeries = this.chart.addLineSeries({
             dataPattern: { pattern: 'ProgressiveX' }
-        })
-        .setStrokeStyle((style) => style.setThickness(2).setColor(ColorHEX(this.color)))
-        .setMouseInteractions(false);
+        });
+
+        // Aplicar color inicial usando la sintaxis robusta de v4
+        this.updateColorStyle(this.color);
 
         this.animate();
     }
 
-    setColor(newColor) {
-        this.color = newColor;
-        if (this.series) {
-            this.series.setStrokeStyle((style) => style.setColor(lcjs.ColorHEX(this.color)));
+    updateColorStyle(hexColor) {
+        if (!this.lineSeries) return;
+        const { SolidLine, SolidFill, ColorHEX } = lcjs;
+        
+        try {
+            const lcColor = ColorHEX(hexColor);
+            const stroke = new SolidLine({
+                thickness: 2,
+                fillStyle: new SolidFill({ color: lcColor })
+            });
+            this.lineSeries.setStrokeStyle(stroke);
+        } catch (e) {
+            console.error("Error al actualizar color del gráfico:", e);
         }
     }
 
+    setColor(newColor) {
+        this.color = newColor;
+        this.updateColorStyle(newColor);
+    }
+
     animate() {
-        if (!this.analyser) return;
+        if (!this.analyser || !this.lineSeries) {
+            requestAnimationFrame(() => this.animate());
+            return;
+        }
         
-        // Obtener datos de la onda de tiempo
         this.analyser.getByteTimeDomainData(this.dataArray);
         
         const points = [];
-        for (let i = 0; i < this.dataArray.length; i += 4) { // Muestrear para rendimiento
-            // Convertir el dato de 0-255 a un rango centrado en 0
+        // Downsampling para rendimiento (tomar 1 de cada 4 puntos)
+        for (let i = 0; i < this.dataArray.length; i += 4) { 
             const y = this.dataArray[i] - 128;
             points.push({ x: i, y: y });
         }
 
-        // Actualizar la serie con los nuevos puntos
-        this.series.clear().add(points);
-        
+        this.lineSeries.clear().add(points);
         requestAnimationFrame(() => this.animate());
     }
 }
 
-// Clase que representa una Pista del Tracker
+// --- CLASE PISTA (TRACK) ---
 class Track {
-    constructor(id, audioCtx, masterGain, initialColor) {
+    constructor(id, appController, initialColor) {
         this.id = id;
-        this.audioCtx = audioCtx;
-        this.masterGain = masterGain;
+        this.app = appController; // Referencia al controlador principal
+        this.audioEngine = appController.audioEngine;
         this.color = initialColor;
         
-        // Nodo de ganancia y analizador para esta pista
-        this.trackGain = this.audioCtx.createGain();
-        this.trackGain.connect(this.masterGain);
-        this.analyser = this.audioCtx.createAnalyser();
-        this.analyser.fftSize = 256; // Tamaño de la ventana de análisis
+        this.trackGain = this.audioEngine.audioCtx.createGain();
+        this.trackGain.connect(this.audioEngine.masterGain);
+        this.analyser = this.audioEngine.audioCtx.createAnalyser();
+        this.analyser.fftSize = 512; 
         this.trackGain.connect(this.analyser);
 
-        // Datos del patrón
-        this.patternData = [];
-        for (let i = 0; i < 64; i++) { // Patrón inicial de 64 filas
-            this.patternData.push({ note: '---', inst: '--', vol: '--', fx: '---' });
-        }
-
+        this.patternData = Array(64).fill(null).map(() => ({ note: '---', inst: '--', vol: '--', fx: '---' }));
+        
         this.element = null;
         this.midiVisualizer = null;
         this.audioVisualizer = null;
@@ -207,141 +240,163 @@ class Track {
         this.element = clone.querySelector('.track-module');
         container.appendChild(this.element);
 
-        // Inicializar componentes
         this.initColorPicker();
         this.initGrid();
-        this.initVisualizers();
-        this.initAddRowBtn();
         
-        // Aplicar color inicial
+        // Inicializar visualizadores
+        const midiCanvas = this.element.querySelector('.midi-canvas');
+        this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
+        this.midiVisualizer.draw(this.patternData);
+
+        const waveContainer = this.element.querySelector('.wave-chart-container');
+        // Generar ID único para el contenedor del gráfico (LCJS lo requiere a veces)
+        const chartId = `chart-container-${this.id}`;
+        waveContainer.id = chartId; 
+        this.audioVisualizer = new AudioVisualizer(chartId, this.analyser, this.color);
+        
+        this.initAddRowBtn();
         this.updateColor(this.color);
     }
 
     initColorPicker() {
         const picker = this.element.querySelector('.track-color-picker');
         picker.value = this.color;
-        picker.addEventListener('input', (e) => {
-            this.updateColor(e.target.value);
-        });
+        picker.addEventListener('input', (e) => this.updateColor(e.target.value));
     }
 
     updateColor(newColor) {
         this.color = newColor;
-        
-        // Actualizar variables CSS de la pista
         this.element.style.setProperty('--track-color', this.color);
-        // Crear un color más oscuro para el fondo y el playhead
-        const darkColor = this.adjustColorBrightness(this.color, -50);
+        // Generar versión oscura
+        const darkColor = this.adjustColorBrightness(this.color, -70); 
         this.element.style.setProperty('--track-color-dark', darkColor);
-
+        
         const rgb = this.hexToRgb(this.color);
-        if(rgb) {
-             this.element.style.setProperty('--track-color-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+        if(rgb) this.element.style.setProperty('--track-color-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+
+        if (this.midiVisualizer) {
+            this.midiVisualizer.setColor(this.color);
+            this.midiVisualizer.draw(this.patternData); // Redibujar con nuevo color
         }
-
-        // Actualizar visualizadores
-        if (this.midiVisualizer) this.midiVisualizer.setColor(this.color);
         if (this.audioVisualizer) this.audioVisualizer.setColor(this.color);
-    }
-
-    initVisualizers() {
-        // Piano Roll
-        const midiCanvas = this.element.querySelector('.midi-canvas');
-        this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color);
-        this.midiVisualizer.draw(this.patternData);
-
-        // Audio Wave (LightningChart)
-        const waveContainer = this.element.querySelector('.wave-chart-container');
-        this.audioVisualizer = new AudioVisualizer(waveContainer, this.analyser, this.color);
     }
 
     initGrid() {
         const rowsContainer = this.element.querySelector('.tracker-rows');
-        rowsContainer.innerHTML = ''; // Limpiar
-
-        this.patternData.forEach((rowData, index) => {
-            this.createRowElement(rowsContainer, rowData, index);
-        });
+        rowsContainer.innerHTML = '';
+        this.patternData.forEach((rowData, index) => this.createRowElement(rowsContainer, rowData, index));
     }
 
     createRowElement(container, rowData, index) {
         const row = document.createElement('div');
         row.className = `tracker-row ${index % 4 === 0 ? 'highlight' : ''}`;
+        
+        // HTML directo es más rápido
         row.innerHTML = `
-            <input type="text" class="tracker-cell note-cell" data-type="note" data-row="${index}" value="${rowData.note}" maxlength="3">
+            <div class="row-number">${index.toString().padStart(2,'0')}</div>
+            <input type="text" class="tracker-cell note-cell" data-type="note" data-row="${index}" value="${rowData.note}" readonly>
             <input type="text" class="tracker-cell inst-cell" data-type="inst" data-row="${index}" value="${rowData.inst}" maxlength="2">
             <input type="text" class="tracker-cell" data-type="vol" data-row="${index}" value="${rowData.vol}" maxlength="2">
             <input type="text" class="tracker-cell" data-type="fx" data-row="${index}" value="${rowData.fx}" maxlength="3">
         `;
         container.appendChild(row);
 
-        // Añadir listeners para editar los datos
-        const inputs = row.querySelectorAll('.tracker-cell');
-        inputs.forEach(input => {
+        // EVENTO DE TECLADO (Keydown) para estilo Tracker
+        const noteInput = row.querySelector('.note-cell');
+        
+        // Click para seleccionar
+        noteInput.addEventListener('click', () => {
+             // Necesario para iniciar AudioContext si es la primera interacción
+             this.audioEngine.checkContext();
+             noteInput.focus();
+             noteInput.classList.add('editing');
+        });
+
+        noteInput.addEventListener('keydown', (e) => {
+            e.preventDefault(); // Prevenir escritura normal
+            
+            // Borrar nota con tecla Supr o Backspace
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                this.updateNoteCell(index, '---');
+                return;
+            }
+
+            // Mapeo de teclas tipo piano
+            const key = e.key.toLowerCase();
+            if (KEYBOARD_MAP[key]) {
+                const baseNote = KEYBOARD_MAP[key];
+                // Calcular octava base (por defecto 4, si presiona ',' es 5)
+                const octave = key === ',' ? 5 : 4; 
+                const fullNote = baseNote + octave;
+
+                // 1. Actualizar Datos
+                this.updateNoteCell(index, fullNote);
+
+                // 2. Tocar Sonido (Preview)
+                this.audioEngine.playNote(fullNote, '01', 'FF', this.trackGain);
+
+                // 3. Auto-avance (Mover foco a la siguiente fila)
+                const nextRowIndex = index + 1;
+                if (nextRowIndex < this.patternData.length) {
+                    const nextInput = container.children[nextRowIndex].querySelector('.note-cell');
+                    if (nextInput) nextInput.focus();
+                }
+            }
+        });
+
+        noteInput.addEventListener('blur', () => noteInput.classList.remove('editing'));
+        
+        // Listeners simples para otras celdas (Vol, Inst)
+        const otherInputs = row.querySelectorAll('.tracker-cell:not(.note-cell)');
+        otherInputs.forEach(input => {
             input.addEventListener('input', (e) => {
                 const type = e.target.dataset.type;
-                const rowIndex = parseInt(e.target.dataset.row);
-                // Actualizar datos del patrón
-                this.patternData[rowIndex][type] = e.target.value.toUpperCase();
-                
-                // Si se cambia una nota, redibujar el piano roll
-                if (type === 'note') {
-                    this.midiVisualizer.draw(this.patternData);
-                }
+                this.patternData[index][type] = e.target.value.toUpperCase();
             });
-            // Seleccionar todo el texto al hacer foco
-            input.addEventListener('focus', (e) => e.target.select());
         });
+    }
+
+    updateNoteCell(index, noteValue) {
+        this.patternData[index].note = noteValue;
+        
+        // Actualizar DOM
+        const rowsContainer = this.element.querySelector('.tracker-rows');
+        const input = rowsContainer.children[index].querySelector('.note-cell');
+        input.value = noteValue;
+
+        // Actualizar Piano Roll inmediatamente
+        this.midiVisualizer.draw(this.patternData);
     }
 
     initAddRowBtn() {
         const btn = this.element.querySelector('.add-row-btn');
         btn.addEventListener('click', () => {
-            // Añadir una nueva fila vacía a los datos
             const newData = { note: '---', inst: '--', vol: '--', fx: '---' };
             this.patternData.push(newData);
-            
-            // Añadir el elemento visual de la fila
             const rowsContainer = this.element.querySelector('.tracker-rows');
             this.createRowElement(rowsContainer, newData, this.patternData.length - 1);
-            
-            // Redibujar el piano roll para incluir la nueva fila
             this.midiVisualizer.draw(this.patternData);
         });
     }
 
-    // --- Funciones de utilidad para el color ---
+    // Utilidades de color
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : null;
+        return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
     }
-
     adjustColorBrightness(hex, percent) {
-        let r = parseInt(hex.substring(1, 3), 16);
-        let g = parseInt(hex.substring(3, 5), 16);
-        let b = parseInt(hex.substring(5, 7), 16);
-
-        r = parseInt(r * (100 + percent) / 100);
-        g = parseInt(g * (100 + percent) / 100);
-        b = parseInt(b * (100 + percent) / 100);
-
-        r = (r < 255) ? r : 255;
-        g = (g < 255) ? g : 255;
-        b = (b < 255) ? b : 255;
-
-        const rr = ((r.toString(16).length == 1) ? "0" + r.toString(16) : r.toString(16));
-        const gg = ((g.toString(16).length == 1) ? "0" + g.toString(16) : g.toString(16));
-        const bb = ((b.toString(16).length == 1) ? "0" + b.toString(16) : b.toString(16));
-
-        return "#" + rr + gg + bb;
+        let r = parseInt(hex.substring(1,3),16), g = parseInt(hex.substring(3,5),16), b = parseInt(hex.substring(5,7),16);
+        r = parseInt(r * (100 + percent) / 100); g = parseInt(g * (100 + percent) / 100); b = parseInt(b * (100 + percent) / 100);
+        r = (r<255)?r:255; g = (g<255)?g:255; b = (b<255)?b:255;
+        r = (r>0)?r:0; g = (g>0)?g:0; b = (b>0)?b:0; // correccion limites
+        const rr = (r.toString(16).length==1)?"0"+r.toString(16):r.toString(16);
+        const gg = (g.toString(16).length==1)?"0"+g.toString(16):g.toString(16);
+        const bb = (b.toString(16).length==1)?"0"+b.toString(16):b.toString(16);
+        return "#"+rr+gg+bb;
     }
 }
 
-// --- Controlador Principal de la Aplicación ---
+// --- CONTROLADOR PRINCIPAL ---
 class AppController {
     constructor() {
         this.audioEngine = new AudioEngine();
@@ -350,60 +405,51 @@ class AppController {
         this.currentRow = 0;
         this.bpm = 130;
         this.intervalId = null;
-        
         this.playBtn = document.getElementById('playBtn');
         this.stopBtn = document.getElementById('stopBtn');
         this.rackBody = document.getElementById('rackBody');
     }
 
     init() {
-        this.initEventListeners();
-        // Crear una pista inicial
+        this.playBtn.addEventListener('click', () => {
+            this.audioEngine.checkContext(); // Desbloquear audio al hacer click en Play
+            this.togglePlay();
+        });
+        this.stopBtn.addEventListener('click', () => this.stop());
+        
+        // Crear pista inicial
         this.addTrack();
     }
 
-    initEventListeners() {
-        this.playBtn.addEventListener('click', () => this.togglePlay());
-        this.stopBtn.addEventListener('click', () => this.stop());
-    }
-
     addTrack() {
-        // Asegurar que el motor de audio esté listo antes de crear pistas
-        this.audioEngine.init();
         const trackId = this.tracks.length;
-        // Color naranja inicial por defecto
-        const track = new Track(trackId, this.audioEngine.audioCtx, this.audioEngine.masterGain, '#ff9900');
+        // Pista 1 Naranja, Pista 2 Azul (si hubiera más)
+        const color = trackId === 0 ? '#ff9900' : '#00aaff';
+        const track = new Track(trackId, this, color);
         track.render(this.rackBody);
         this.tracks.push(track);
     }
 
     togglePlay() {
-        if (this.isPlaying) {
-            this.stop();
-        } else {
-            this.play();
-        }
+        if (this.isPlaying) this.stop();
+        else this.play();
     }
 
     play() {
-        this.audioEngine.init(); // Asegurar que el audioContext esté activo
         this.isPlaying = true;
         this.playBtn.textContent = 'PAUSE';
         this.playBtn.style.background = '#6d6';
+        this.playBtn.style.color = '#000';
         
-        // Calcular el tiempo por fila (en ms) basado en BPM
-        // Suponiendo 4 filas por beat (patrón de semicorcheas estándar)
-        const msPerRow = (60000 / this.bpm) / 4;
-        
-        this.intervalId = setInterval(() => {
-            this.playRow();
-        }, msPerRow);
+        const msPerRow = (60000 / this.bpm) / 4; 
+        this.intervalId = setInterval(() => this.playRow(), msPerRow);
     }
 
     stop() {
         this.isPlaying = false;
         this.playBtn.textContent = 'PLAY';
         this.playBtn.style.background = '#444';
+        this.playBtn.style.color = '#fff';
         clearInterval(this.intervalId);
         this.currentRow = 0;
         this.updatePlayheadPosition();
@@ -411,32 +457,32 @@ class AppController {
 
     playRow() {
         this.tracks.forEach(track => {
-            // Obtener datos de la fila actual para esta pista
-            // Usar módulo (%) para que el patrón haga loop si llega al final
             const rowData = track.patternData[this.currentRow % track.patternData.length];
-            
-            // Disparar la nota si existe
             if (rowData && rowData.note !== '---') {
-                const vol = rowData.vol !== '--' ? rowData.vol : 'FF'; // FF = volumen máximo por defecto
-                this.audioEngine.playNote(rowData.note, rowData.inst, vol, track.trackGain);
+                track.element.querySelector(`.tracker-rows > div:nth-child(${(this.currentRow % track.patternData.length) + 1})`).classList.add('flash');
+                setTimeout(() => {
+                     const el = track.element.querySelector(`.tracker-rows > div:nth-child(${(this.currentRow % track.patternData.length) + 1})`);
+                     if(el) el.classList.remove('flash');
+                }, 100);
+                
+                this.audioEngine.playNote(rowData.note, rowData.inst, rowData.vol, track.trackGain);
             }
         });
-
         this.updatePlayheadPosition();
         this.currentRow++;
     }
 
     updatePlayheadPosition() {
-        const rowHeight = 15; // Altura fija de fila definida en CSS
-        // Obtener la longitud máxima del patrón entre todas las pistas
+        const rowHeight = 15; 
         const maxRows = Math.max(...this.tracks.map(t => t.patternData.length));
-        // Calcular el desplazamiento en píxeles
         const scrollOffset = (this.currentRow % maxRows) * rowHeight;
         
-        // Mover el contenedor de filas de cada pista
+        // Centrar el playhead: Restamos la mitad de la altura visible del tracker (200px aprox)
+        // para que la fila actual esté siempre en el medio
+        const centerOffset = scrollOffset - 180; 
+
         this.tracks.forEach(track => {
             const rowsContainer = track.element.querySelector('.tracker-rows');
-            // Usamos transform para un movimiento suave y eficiente
             rowsContainer.style.transform = `translateY(-${scrollOffset}px)`;
         });
     }
