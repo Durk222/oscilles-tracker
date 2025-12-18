@@ -48,11 +48,11 @@ body {
 }
 .transport button:active { background: #333; transform: translateY(1px); }
 
-/* ÁREA DEL RACK (DONDE VAN LAS PISTAS) */
 .rack-body {
     flex: 1;
-    overflow-y: auto;
     padding: 20px;
+    
+    /* Tu fondo original se mantiene */
     background: repeating-linear-gradient(
         45deg,
         #1b1b1b,
@@ -60,6 +60,26 @@ body {
         #1e1e1e 10px,
         #1e1e1e 20px
     );
+
+    /* --- NUEVOS CAMBIOS PARA EL FLUJO DE PISTAS --- */
+    display: flex;             /* Las pistas se alinean usando Flexbox */
+    flex-direction: row;       /* Se colocan una al lado de la otra (horizontal) */
+    align-items: flex-start;   /* Las alinea en la parte superior */
+    gap: 15px;                 /* Espacio elegante entre cada pista */
+    
+    /* Control de Scroll */
+    overflow-x: auto;          /* Scroll horizontal si hay muchas pistas */
+    overflow-y: hidden;        /* Evita que el rack entero haga scroll vertical */
+    
+    /* Dimensiones */
+    min-height: 80vh;          /* Asegura que ocupe gran parte de la pantalla */
+    scroll-behavior: smooth;   /* Para que el scroll sea fluido */
+}
+
+/* IMPORTANTE: Asegúrate de que los módulos de pista no se encojan */
+.track-module {
+    flex-shrink: 0;            /* Evita que la pista se deforme al haber muchas */
+    min-width: 250px;          /* Ajusta este ancho según tu diseño de tracker */
 }
 
 /* EL MÓDULO DE LA PISTA (TRACK) */
