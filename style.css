@@ -244,3 +244,18 @@ body {
 .delete-track-btn:hover {
     color: #ff4444; /* Rojo al pasar el mouse */
 }
+
+.mute-btn.active { background: #ff4444; color: white; }
+.solo-btn.active { background: #ffea00; color: black; }
+
+.mute-btn, .solo-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    background: #333;
+    color: #ccc;
+    border: 1px solid #555;
+    margin-right: 2px;
+}
