@@ -1,20 +1,19 @@
-//OSCILLESTRACKER SCRIPT MAIN. . .
-document.addEventListener('DOMContentLoaded', () => {
-    // Verificar carga de librería
-    if (typeof lcjs === 'undefined') {
-        alert('Error: LightningChart JS no cargó. Revisa tu conexión.');
-        return;
-    }
-    const app = new AppController();
-    app.init();
-});
-
-// --- Configuración de Teclado (Estilo Tracker) ---
+//OSCILLESTRACKER MAIN SCRIPT.JS. . . 
+// --- CONFIGURACIÓN GLOBAL ---
 const KEYBOARD_MAP = {
     'z': 'C-', 's': 'C#', 'x': 'D-', 'd': 'D#', 'c': 'E-', 'v': 'F-',
     'g': 'F#', 'b': 'G-', 'h': 'G#', 'n': 'A-', 'j': 'A#', 'm': 'B-',
     ',': 'C-' // Octava siguiente
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof lcjs === 'undefined') {
+        alert('Error: LightningChart JS no cargó.');
+        return;
+    }
+    const app = new AppController();
+    app.init();
+});
 
 // --- MOTOR DE AUDIO ---
 class AudioEngine {
@@ -25,7 +24,6 @@ class AudioEngine {
         this.masterGain.connect(this.audioCtx.destination);
     }
 
-    // Método vital para desbloquear el audio en navegadores modernos
     async checkContext() {
         if (this.audioCtx.state === 'suspended') {
             await this.audioCtx.resume();
@@ -33,7 +31,7 @@ class AudioEngine {
     }
 
     playNote(noteName, instrumentId, volumeHex, trackGainNode) {
-        this.checkContext(); // Intentar desbloquear siempre que se intente tocar
+        this.checkContext();
         if (noteName === '---') return;
 
         const freq = this.noteToFreq(noteName);
@@ -44,7 +42,6 @@ class AudioEngine {
         osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
 
         const gainNode = this.audioCtx.createGain();
-        // Convertir volumen Hex (00-FF) a 0.0-1.0
         let volVal = 0.5;
         if (volumeHex && volumeHex !== '--') {
             volVal = parseInt(volumeHex, 16) / 255;
@@ -61,19 +58,15 @@ class AudioEngine {
     }
 
     noteToFreq(note) {
-        if (!note || note.length < 3) return null;
         const notes = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
         const name = note.slice(0, 2);
-        const octave = parseInt(note.charAt(2)); // C-4 -> 4
+        const octave = parseInt(note.charAt(2));
         const index = notes.indexOf(name);
-        
         if (index === -1 || isNaN(octave)) return null;
-        
         const midiNote = index + (octave + 1) * 12;
         return 440 * Math.pow(2, (midiNote - 69) / 12);
     }
-    
-    // Helper para obtener valor MIDI numérico (para el visualizador)
+
     getMidiNumber(note) {
         const notes = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
         const name = note.slice(0, 2);
@@ -83,26 +76,24 @@ class AudioEngine {
     }
 }
 
-// --- VISUALIZADOR MIDI (Piano Roll Vertical) ---
+// --- VISUALIZADOR MIDI ---
 class MidiVisualizer {
     constructor(canvas, color, audioEngine) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.color = color;
+        this.bgColor = '#000';
         this.audioEngine = audioEngine;
     }
 
-    setColor(newColor) {
-        this.color = newColor;
-    }
+    setColor(newColor) { this.color = newColor; }
+    setBackgroundColor(hexColor) { this.bgColor = hexColor; }
 
     draw(patternData) {
-        // Limpiar canvas
-        this.ctx.fillStyle = '#000'; 
-        this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = this.bgColor; 
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        const rowHeight = 15; 
-        // Rango de visualización: De C-1 (24) a C-8 (108) = 84 notas aprox
+        const rowHeight = 15;
         const minMidi = 24; 
         const maxMidi = 96; 
         const midiRange = maxMidi - minMidi;
@@ -110,27 +101,20 @@ class MidiVisualizer {
         patternData.forEach((row, rowIndex) => {
             if (row.note && row.note !== '---') {
                 const midiNum = this.audioEngine.getMidiNumber(row.note);
-                
-                // Normalizar posición X basada en la altura de la nota (0 a 1)
                 let normalizedPos = (midiNum - minMidi) / midiRange;
-                // Clamp (limitar entre 0 y 1)
                 normalizedPos = Math.max(0, Math.min(1, normalizedPos));
 
-                const x = normalizedPos * (this.canvas.width - 10); // -10 para que no se salga
+                const x = normalizedPos * (this.canvas.width - 10);
                 const y = rowIndex * rowHeight;
                 
                 this.ctx.fillStyle = this.color;
-                this.ctx.fillRect(x, y, 8, rowHeight - 1); // Nota de 8px de ancho
-                
-                // Brillo extra
-                this.ctx.fillStyle = 'rgba(255,255,255,0.3)';
-                this.ctx.fillRect(x+2, y+2, 4, rowHeight - 4);
+                this.ctx.fillRect(x, y, 8, rowHeight - 1);
             }
         });
     }
 }
 
-// --- VISUALIZADOR DE AUDIO (LightningChart) ---
+// --- VISUALIZADOR DE AUDIO (LightningChart VERTICAL) ---
 class AudioVisualizer {
     constructor(container, analyserNode, color) {
         this.container = container;
@@ -139,52 +123,50 @@ class AudioVisualizer {
         this.chart = null;
         this.lineSeries = null;
         this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        
-        // Esperar un tick para asegurar que el contenedor está renderizado en el DOM
         setTimeout(() => this.initChart(), 0);
     }
 
     initChart() {
         const { lightningChart, AxisTickStrategies, Themes, ColorHEX, SolidLine, SolidFill } = lcjs;
 
-        // Crear gráfico
         this.chart = lightningChart().ChartXY({
             container: this.container,
             theme: Themes.darkGold,
-            disableAnimations: true // Rendimiento
-        })
-        .setTitle('')
-        .setPadding(0)
-        .setBackgroundFillStyle(new SolidFill({ color: ColorHEX('#000000') }));
+            disableAnimations: true
+        }).setTitle('').setPadding(0);
 
-        // Ocultar ejes
-        this.chart.getDefaultAxisX().setTickStrategy(AxisTickStrategies.Empty).setStrokeStyle(emptyLine => emptyLine.setFillStyle(new SolidFill({ color: ColorHEX('#000') })));
-        this.chart.getDefaultAxisY().setTickStrategy(AxisTickStrategies.Empty).setScrollStrategy(undefined).setInterval(-140, 140);
+        // Configuración para ONDA VERTICAL
+        // Eje X = Amplitud (izquierda/derecha)
+        this.chart.getDefaultAxisX()
+            .setTickStrategy(AxisTickStrategies.Empty)
+            .setInterval(-140, 140)
+            .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
 
-        // Crear la serie de línea CORRECTAMENTE
-        this.lineSeries = this.chart.addLineSeries({
-            dataPattern: { pattern: 'ProgressiveX' }
-        });
+        // Eje Y = Tiempo (arriba/abajo)
+        this.chart.getDefaultAxisY()
+            .setTickStrategy(AxisTickStrategies.Empty)
+            .setInterval(0, 128)
+            .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
 
-        // Aplicar color inicial usando la sintaxis robusta de v4
+        this.lineSeries = this.chart.addLineSeries();
         this.updateColorStyle(this.color);
-
         this.animate();
     }
 
     updateColorStyle(hexColor) {
         if (!this.lineSeries) return;
         const { SolidLine, SolidFill, ColorHEX } = lcjs;
-        
-        try {
-            const lcColor = ColorHEX(hexColor);
-            const stroke = new SolidLine({
-                thickness: 2,
-                fillStyle: new SolidFill({ color: lcColor })
-            });
-            this.lineSeries.setStrokeStyle(stroke);
-        } catch (e) {
-            console.error("Error al actualizar color del gráfico:", e);
+        this.lineSeries.setStrokeStyle(new SolidLine({
+            thickness: 2,
+            fillStyle: new SolidFill({ color: ColorHEX(hexColor) })
+        }));
+    }
+
+    setBackgroundColor(hexColor) {
+        if (this.chart) {
+            const { SolidFill, ColorHEX } = lcjs;
+            this.chart.setBackgroundFillStyle(new SolidFill({ color: ColorHEX(hexColor) }));
+            this.chart.setSeriesBackgroundFillStyle(new SolidFill({ color: ColorHEX(hexColor) }));
         }
     }
 
@@ -198,16 +180,12 @@ class AudioVisualizer {
             requestAnimationFrame(() => this.animate());
             return;
         }
-        
         this.analyser.getByteTimeDomainData(this.dataArray);
-        
         const points = [];
-        // Downsampling para rendimiento (tomar 1 de cada 4 puntos)
         for (let i = 0; i < this.dataArray.length; i += 4) { 
-            const y = this.dataArray[i] - 128;
-            points.push({ x: i, y: y });
+            const amplitude = this.dataArray[i] - 128;
+            points.push({ x: amplitude, y: i / 4 }); 
         }
-
         this.lineSeries.clear().add(points);
         requestAnimationFrame(() => this.animate());
     }
@@ -217,21 +195,15 @@ class AudioVisualizer {
 class Track {
     constructor(id, appController, initialColor) {
         this.id = id;
-        this.app = appController; // Referencia al controlador principal
+        this.app = appController;
         this.audioEngine = appController.audioEngine;
         this.color = initialColor;
-        
         this.trackGain = this.audioEngine.audioCtx.createGain();
         this.trackGain.connect(this.audioEngine.masterGain);
         this.analyser = this.audioEngine.audioCtx.createAnalyser();
         this.analyser.fftSize = 512; 
         this.trackGain.connect(this.analyser);
-
         this.patternData = Array(64).fill(null).map(() => ({ note: '---', inst: '--', vol: '--', fx: '---' }));
-        
-        this.element = null;
-        this.midiVisualizer = null;
-        this.audioVisualizer = null;
     }
 
     render(container) {
@@ -243,18 +215,15 @@ class Track {
         this.initColorPicker();
         this.initGrid();
         
-        // Inicializar visualizadores
         const midiCanvas = this.element.querySelector('.midi-canvas');
         this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
-        this.midiVisualizer.draw(this.patternData);
 
         const waveContainer = this.element.querySelector('.wave-chart-container');
-        // Generar ID único para el contenedor del gráfico (LCJS lo requiere a veces)
         const chartId = `chart-container-${this.id}`;
         waveContainer.id = chartId; 
         this.audioVisualizer = new AudioVisualizer(chartId, this.analyser, this.color);
         
-        this.initAddRowBtn();
+        this.element.querySelector('.add-row-btn').addEventListener('click', () => this.addRow());
         this.updateColor(this.color);
     }
 
@@ -266,9 +235,8 @@ class Track {
 
     updateColor(newColor) {
         this.color = newColor;
+        const darkColor = this.adjustColorBrightness(this.color, -80);
         this.element.style.setProperty('--track-color', this.color);
-        // Generar versión oscura
-        const darkColor = this.adjustColorBrightness(this.color, -70); 
         this.element.style.setProperty('--track-color-dark', darkColor);
         
         const rgb = this.hexToRgb(this.color);
@@ -276,9 +244,13 @@ class Track {
 
         if (this.midiVisualizer) {
             this.midiVisualizer.setColor(this.color);
-            this.midiVisualizer.draw(this.patternData); // Redibujar con nuevo color
+            this.midiVisualizer.setBackgroundColor(darkColor);
+            this.midiVisualizer.draw(this.patternData);
         }
-        if (this.audioVisualizer) this.audioVisualizer.setColor(this.color);
+        if (this.audioVisualizer) {
+            this.audioVisualizer.setColor(this.color);
+            this.audioVisualizer.setBackgroundColor(darkColor);
+        }
     }
 
     initGrid() {
@@ -290,109 +262,60 @@ class Track {
     createRowElement(container, rowData, index) {
         const row = document.createElement('div');
         row.className = `tracker-row ${index % 4 === 0 ? 'highlight' : ''}`;
-        
-        // HTML directo es más rápido
         row.innerHTML = `
             <div class="row-number">${index.toString().padStart(2,'0')}</div>
-            <input type="text" class="tracker-cell note-cell" data-type="note" data-row="${index}" value="${rowData.note}" readonly>
-            <input type="text" class="tracker-cell inst-cell" data-type="inst" data-row="${index}" value="${rowData.inst}" maxlength="2">
-            <input type="text" class="tracker-cell" data-type="vol" data-row="${index}" value="${rowData.vol}" maxlength="2">
-            <input type="text" class="tracker-cell" data-type="fx" data-row="${index}" value="${rowData.fx}" maxlength="3">
+            <input type="text" class="tracker-cell note-cell" value="${rowData.note}" readonly>
+            <input type="text" class="tracker-cell inst-cell" value="${rowData.inst}" maxlength="2">
+            <input type="text" class="tracker-cell vol-cell" value="${rowData.vol}" maxlength="2">
+            <input type="text" class="tracker-cell fx-cell" value="${rowData.fx}" maxlength="3">
         `;
         container.appendChild(row);
 
-        // EVENTO DE TECLADO (Keydown) para estilo Tracker
         const noteInput = row.querySelector('.note-cell');
-        
-        // Click para seleccionar
         noteInput.addEventListener('click', () => {
-             // Necesario para iniciar AudioContext si es la primera interacción
-             this.audioEngine.checkContext();
-             noteInput.focus();
-             noteInput.classList.add('editing');
+            this.audioEngine.checkContext();
+            noteInput.focus();
         });
 
         noteInput.addEventListener('keydown', (e) => {
-            e.preventDefault(); // Prevenir escritura normal
-            
-            // Borrar nota con tecla Supr o Backspace
+            e.preventDefault();
+            const key = e.key.toLowerCase();
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 this.updateNoteCell(index, '---');
-                return;
-            }
-
-            // Mapeo de teclas tipo piano
-            const key = e.key.toLowerCase();
-            if (KEYBOARD_MAP[key]) {
-                const baseNote = KEYBOARD_MAP[key];
-                // Calcular octava base (por defecto 4, si presiona ',' es 5)
-                const octave = key === ',' ? 5 : 4; 
-                const fullNote = baseNote + octave;
-
-                // 1. Actualizar Datos
+            } else if (KEYBOARD_MAP[key]) {
+                const fullNote = KEYBOARD_MAP[key] + (key === ',' ? 5 : 4);
                 this.updateNoteCell(index, fullNote);
-
-                // 2. Tocar Sonido (Preview)
                 this.audioEngine.playNote(fullNote, '01', 'FF', this.trackGain);
-
-                // 3. Auto-avance (Mover foco a la siguiente fila)
-                const nextRowIndex = index + 1;
-                if (nextRowIndex < this.patternData.length) {
-                    const nextInput = container.children[nextRowIndex].querySelector('.note-cell');
-                    if (nextInput) nextInput.focus();
-                }
+                // Auto-advance
+                const nextRow = container.children[index + 1];
+                if (nextRow) nextRow.querySelector('.note-cell').focus();
             }
-        });
-
-        noteInput.addEventListener('blur', () => noteInput.classList.remove('editing'));
-        
-        // Listeners simples para otras celdas (Vol, Inst)
-        const otherInputs = row.querySelectorAll('.tracker-cell:not(.note-cell)');
-        otherInputs.forEach(input => {
-            input.addEventListener('input', (e) => {
-                const type = e.target.dataset.type;
-                this.patternData[index][type] = e.target.value.toUpperCase();
-            });
         });
     }
 
     updateNoteCell(index, noteValue) {
         this.patternData[index].note = noteValue;
-        
-        // Actualizar DOM
-        const rowsContainer = this.element.querySelector('.tracker-rows');
-        const input = rowsContainer.children[index].querySelector('.note-cell');
-        input.value = noteValue;
-
-        // Actualizar Piano Roll inmediatamente
+        this.element.querySelectorAll('.note-cell')[index].value = noteValue;
         this.midiVisualizer.draw(this.patternData);
     }
 
-    initAddRowBtn() {
-        const btn = this.element.querySelector('.add-row-btn');
-        btn.addEventListener('click', () => {
-            const newData = { note: '---', inst: '--', vol: '--', fx: '---' };
-            this.patternData.push(newData);
-            const rowsContainer = this.element.querySelector('.tracker-rows');
-            this.createRowElement(rowsContainer, newData, this.patternData.length - 1);
-            this.midiVisualizer.draw(this.patternData);
-        });
+    addRow() {
+        const newData = { note: '---', inst: '--', vol: '--', fx: '---' };
+        this.patternData.push(newData);
+        this.createRowElement(this.element.querySelector('.tracker-rows'), newData, this.patternData.length - 1);
     }
 
-    // Utilidades de color
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
     }
+
     adjustColorBrightness(hex, percent) {
         let r = parseInt(hex.substring(1,3),16), g = parseInt(hex.substring(3,5),16), b = parseInt(hex.substring(5,7),16);
-        r = parseInt(r * (100 + percent) / 100); g = parseInt(g * (100 + percent) / 100); b = parseInt(b * (100 + percent) / 100);
-        r = (r<255)?r:255; g = (g<255)?g:255; b = (b<255)?b:255;
-        r = (r>0)?r:0; g = (g>0)?g:0; b = (b>0)?b:0; // correccion limites
-        const rr = (r.toString(16).length==1)?"0"+r.toString(16):r.toString(16);
-        const gg = (g.toString(16).length==1)?"0"+g.toString(16):g.toString(16);
-        const bb = (b.toString(16).length==1)?"0"+b.toString(16):b.toString(16);
-        return "#"+rr+gg+bb;
+        r = Math.max(0, Math.min(255, r + percent));
+        g = Math.max(0, Math.min(255, g + percent));
+        b = Math.max(0, Math.min(255, b + percent));
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
 }
 
@@ -405,51 +328,37 @@ class AppController {
         this.currentRow = 0;
         this.bpm = 130;
         this.intervalId = null;
-        this.playBtn = document.getElementById('playBtn');
-        this.stopBtn = document.getElementById('stopBtn');
-        this.rackBody = document.getElementById('rackBody');
     }
 
     init() {
-        this.playBtn.addEventListener('click', () => {
-            this.audioEngine.checkContext(); // Desbloquear audio al hacer click en Play
+        document.getElementById('playBtn').addEventListener('click', () => {
+            this.audioEngine.checkContext();
             this.togglePlay();
         });
-        this.stopBtn.addEventListener('click', () => this.stop());
-        
-        // Crear pista inicial
+        document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         this.addTrack();
     }
 
     addTrack() {
-        const trackId = this.tracks.length;
-        // Pista 1 Naranja, Pista 2 Azul (si hubiera más)
-        const color = trackId === 0 ? '#ff9900' : '#00aaff';
-        const track = new Track(trackId, this, color);
-        track.render(this.rackBody);
+        const track = new Track(this.tracks.length, this, '#ff9900');
+        track.render(document.getElementById('rackBody'));
         this.tracks.push(track);
     }
 
     togglePlay() {
-        if (this.isPlaying) this.stop();
-        else this.play();
+        this.isPlaying ? this.stop() : this.play();
     }
 
     play() {
         this.isPlaying = true;
-        this.playBtn.textContent = 'PAUSE';
-        this.playBtn.style.background = '#6d6';
-        this.playBtn.style.color = '#000';
-        
+        document.getElementById('playBtn').textContent = 'PAUSE';
         const msPerRow = (60000 / this.bpm) / 4; 
         this.intervalId = setInterval(() => this.playRow(), msPerRow);
     }
 
     stop() {
         this.isPlaying = false;
-        this.playBtn.textContent = 'PLAY';
-        this.playBtn.style.background = '#444';
-        this.playBtn.style.color = '#fff';
+        document.getElementById('playBtn').textContent = 'PLAY';
         clearInterval(this.intervalId);
         this.currentRow = 0;
         this.updatePlayheadPosition();
@@ -457,14 +366,12 @@ class AppController {
 
     playRow() {
         this.tracks.forEach(track => {
-            const rowData = track.patternData[this.currentRow % track.patternData.length];
+            const index = this.currentRow % track.patternData.length;
+            const rowData = track.patternData[index];
             if (rowData && rowData.note !== '---') {
-                track.element.querySelector(`.tracker-rows > div:nth-child(${(this.currentRow % track.patternData.length) + 1})`).classList.add('flash');
-                setTimeout(() => {
-                     const el = track.element.querySelector(`.tracker-rows > div:nth-child(${(this.currentRow % track.patternData.length) + 1})`);
-                     if(el) el.classList.remove('flash');
-                }, 100);
-                
+                const rowEl = track.element.querySelectorAll('.tracker-row')[index];
+                rowEl.classList.add('flash');
+                setTimeout(() => rowEl.classList.remove('flash'), 100);
                 this.audioEngine.playNote(rowData.note, rowData.inst, rowData.vol, track.trackGain);
             }
         });
@@ -473,17 +380,9 @@ class AppController {
     }
 
     updatePlayheadPosition() {
-        const rowHeight = 15; 
-        const maxRows = Math.max(...this.tracks.map(t => t.patternData.length));
-        const scrollOffset = (this.currentRow % maxRows) * rowHeight;
-        
-        // Centrar el playhead: Restamos la mitad de la altura visible del tracker (200px aprox)
-        // para que la fila actual esté siempre en el medio
-        const centerOffset = scrollOffset - 180; 
-
+        const offset = (this.currentRow % 64) * 15;
         this.tracks.forEach(track => {
-            const rowsContainer = track.element.querySelector('.tracker-rows');
-            rowsContainer.style.transform = `translateY(-${scrollOffset}px)`;
+            track.element.querySelector('.tracker-rows').style.transform = `translateY(-${offset}px)`;
         });
     }
 }
