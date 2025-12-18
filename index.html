@@ -26,8 +26,18 @@
     <template id="track-template">
         <div class="track-module">
             <div class="track-header">
-                <span class="track-name" contenteditable="true">BASS SYNTH</span>
+                <span class="track-name" contenteditable="true">NEW TRACK</span>
                 <div class="track-controls">
+                    <button class="mute-btn" title="Mute">M</button>
+                    <button class="solo-btn" title="Solo">S</button>
+                    
+                    <select class="wave-type-select">
+                        <option value="sawtooth">SAW</option>
+                        <option value="square">SQR</option>
+                        <option value="triangle">TRI</option>
+                        <option value="sine">SIN</option>
+                    </select>
+                    
                     <input type="color" class="track-color-picker" value="#ff9900" title="Color de Pista">
                     <button class="delete-track-btn">×</button>
                 </div>
