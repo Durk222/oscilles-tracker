@@ -250,6 +250,14 @@ class Track {
 
         this.initColorPicker();
         this.initGrid();
+
+     // LÓGICA PARA EL BOTÓN DE FILAS
+    const addRowBtn = this.element.querySelector('.add-row-btn');
+    if (addRowBtn) {
+        addRowBtn.addEventListener('click', () => {
+            this.addRow(); // Ejecuta la función que añade una fila de datos
+        });
+    }
         
     const midiCanvas = this.element.querySelector('.midi-canvas');
     this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
