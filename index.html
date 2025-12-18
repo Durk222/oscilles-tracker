@@ -5,52 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OSCILLESTRACKER</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@arction/lcjs@4.1.1/dist/lcjs.iife.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <div class="app-container">
         <header class="rack-header">
-            <h1>OSCILLESTRACKER <span class="version">v0.1</span></h1>
+            <h1>OSCILLESTRACKER <span class="version">v0.2.1</span></h1>
             <div class="transport">
                 <button id="playBtn">PLAY</button>
                 <button id="stopBtn">STOP</button>
                 <div class="bpm-display">130.00 BPM</div>
             </div>
         </header>
+        <div class="rack-body" id="rackBody">
+            </div>
+    </div>
 
-        <div class="rack-body">
-            
-            <div class="track-module">
-                <div class="track-header">
-                    <span class="track-name">BASS SYNTH</span>
-                    <div class="track-knobs">
-                        <div class="knob"></div> <div class="knob"></div>
-                    </div>
-                </div>
-
-                <div class="track-interface">
-                    <div class="column col-left">
-                        <div class="label-overlay">MIDI IN</div>
-                        <canvas id="midiCanvas1" width="60" height="400"></canvas>
-                    </div>
-
-                    <div class="column col-mid">
-                        <div class="tracker-header">NOTE | INST | VOL | FX</div>
-                        <div class="tracker-rows" id="trackerRows1">
-                            </div>
-                        <div class="playhead"></div>
-                    </div>
-
-                    <div class="column col-right">
-                        <div class="label-overlay">AUDIO OUT</div>
-                        <canvas id="waveCanvas1" width="60" height="400"></canvas>
-                    </div>
+    <template id="track-template">
+        <div class="track-module">
+            <div class="track-header">
+                <span class="track-name" contenteditable="true">BASS SYNTH</span>
+                <div class="track-controls">
+                    <input type="color" class="track-color-picker" value="#ff9900" title="Color de Pista">
                 </div>
             </div>
-
+            <div class="track-interface">
+                <div class="column col-left">
+                    <div class="label-overlay">MIDI IN</div>
+                    <canvas class="midi-canvas" width="60" height="400"></canvas>
+                </div>
+                <div class="column col-mid">
+                    <div class="tracker-header">NOTE | INST | VOL | FX</div>
+                    <div class="tracker-grid-container">
+                        <div class="tracker-rows">
+                            </div>
+                    </div>
+                    <div class="playhead"></div>
+                </div>
+                <div class="column col-right">
+                    <div class="label-overlay">AUDIO OUT</div>
+                    <div class="wave-chart-container" style="width: 60px; height: 400px;"></div>
+                </div>
+            </div>
+            <div class="track-footer">
+                <button class="add-row-btn">+ Añadir Fila</button>
+            </div>
         </div>
-    </div>
+    </template>
 
     <script src="script.js"></script>
 </body>
