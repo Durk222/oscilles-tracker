@@ -258,6 +258,13 @@ class Track {
             this.addRow(); // Ejecuta la función que añade una fila de datos
         });
     }
+// LÓGICA PARA EL BOTÓN DE ELIMINAR FILA
+const deleteBtn = this.element.querySelector('.delete-track-btn');
+if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+        this.app.removeTrack(this); 
+    });
+}
         
     const midiCanvas = this.element.querySelector('.midi-canvas');
     this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
@@ -438,6 +445,24 @@ class AppController {
     this.tracks.push(track);
     }
 
+    removeTrack(trackInstance) {
+    // 1. Confirmación opcional
+    if (!confirm(`¿Borrar ${trackInstance.element.querySelector('.track-name').textContent}?`)) return;
+
+    // 2. Eliminar del array de pistas para que deje de sonar en playRow()
+    this.tracks = this.tracks.filter(t => t !== trackInstance);
+
+    // 3. Limpiar visualizadores (opcional pero recomendado para performance)
+    if (trackInstance.audioVisualizer && trackInstance.audioVisualizer.chart) {
+        trackInstance.audioVisualizer.chart.dispose();
+    }
+
+    // 4. Eliminar del DOM (la interfaz)
+    trackInstance.element.remove();
+    
+    console.log(`Pista ${trackInstance.id} eliminada.`);
+    }
+    
     togglePlay() {
         this.isPlaying ? this.stop() : this.play();
     }
