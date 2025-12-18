@@ -2,7 +2,6 @@
     --bg-dark: #121214;
     --rack-bg: #1e1e20;
     --panel-bg: #2a2a2d;
-    --accent: #ff9900; /* Naranja estilo Reason */
     --text-main: #e0e0e0;
     --text-dim: #777;
     --border: #38383b;
@@ -14,7 +13,7 @@ body {
     color: var(--text-main);
     font-family: 'Roboto Mono', monospace;
     margin: 0;
-    overflow: hidden; /* Para que parezca una app nativa */
+    overflow: hidden;
 }
 
 /* Layout General */
@@ -37,12 +36,13 @@ body {
 }
 
 .rack-header h1 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; }
-.version { color: var(--accent); font-size: 0.8rem; }
+.version { color: var(--text-dim); font-size: 0.8rem; }
 
 .transport button {
     background: #444; border: 1px solid #000; color: #fff;
     padding: 5px 15px; cursor: pointer; font-family: inherit;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    margin-right: 5px;
 }
 .transport button:active { background: #333; transform: translateY(1px); }
 
@@ -57,19 +57,23 @@ body {
         #1b1b1b 10px,
         #1e1e1e 10px,
         #1e1e1e 20px
-    ); /* Textura sutil de fondo */
+    );
 }
 
 /* El Módulo de la Pista */
 .track-module {
+    /* El color de la pista se define por variable CSS */
+    --track-color: #ff9900;
+    --track-color-dark: #cc7a00; /* Un tono más oscuro */
     background-color: var(--panel-bg);
     border: 1px solid #000;
     border-radius: 4px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    width: 400px; /* Ancho fijo para probar */
+    width: 400px;
     margin: 0 auto 20px auto;
     display: flex;
     flex-direction: column;
+    border-top: 3px solid var(--track-color); /* Borde superior del color de la pista */
 }
 
 .track-header {
@@ -78,13 +82,30 @@ body {
     border-bottom: 1px solid #000;
     display: flex;
     justify-content: space-between;
+    align-items: center;
 }
-.track-name { font-weight: bold; color: var(--accent); text-shadow: 0 0 5px rgba(255,153,0,0.4); }
+.track-name {
+    font-weight: bold; color: var(--track-color);
+    text-shadow: 0 0 5px rgba(var(--track-color-rgb), 0.4);
+    cursor: text;
+    border-bottom: 1px dashed transparent;
+}
+.track-name:focus { border-bottom-color: var(--track-color); outline: none; }
+
+.track-controls {
+    display: flex;
+    align-items: center;
+}
+.track-color-picker {
+    width: 30px; height: 20px; border: none; padding: 0; cursor: pointer; background: none;
+}
+.track-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.track-color-picker::-webkit-color-swatch { border: 1px solid #000; border-radius: 2px; }
 
 /* Las 3 Columnas */
 .track-interface {
     display: flex;
-    height: 400px; /* Altura de la vista del tracker */
+    height: 400px;
     position: relative;
     background: #000;
 }
@@ -93,13 +114,15 @@ body {
     position: relative;
     border-right: 1px solid var(--border);
 }
-.col-left { width: 60px; background: #111; }  /* MIDI Visualizer */
-.col-mid { flex: 1; background: #181818; overflow: hidden; position: relative; } /* Tracker Grid */
-.col-right { width: 60px; background: #0a0a0a; border-right: none; } /* Audio Wave */
+/* Paneles laterales con fondo del color de la pista pero más oscuro */
+.col-left { width: 60px; background: var(--track-color-dark); }
+.col-mid { flex: 1; background: #181818; overflow: hidden; position: relative; }
+.col-right { width: 60px; background: var(--track-color-dark); border-right: none; }
 
 .label-overlay {
     position: absolute; top: 2px; left: 2px;
-    font-size: 8px; color: var(--text-dim); pointer-events: none;
+    font-size: 8px; color: var(--text-main); pointer-events: none;
+    z-index: 10;
 }
 
 /* Estilos del Tracker (Columna del medio) */
@@ -107,23 +130,65 @@ body {
     background: #222; font-size: 10px; color: #666;
     padding: 2px; text-align: center; border-bottom: 1px solid #333;
 }
+.tracker-grid-container {
+    height: calc(100% - 20px); /* Altura ajustada para el header */
+    overflow-y: auto;
+}
+.tracker-rows {
+    position: relative;
+    transition: transform 0.1s linear; /* Animación suave del scroll */
+}
 .tracker-row {
     display: flex; justify-content: space-around;
     padding: 2px 0; font-size: 11px; color: #888;
     border-bottom: 1px solid #222;
+    height: 15px; /* Altura fija para el cálculo del scroll */
+    box-sizing: border-box;
 }
-.tracker-row.highlight { background: #222; } /* Cada 4 beats */
-.tracker-row span { width: 25%; text-align: center; }
+.tracker-row.highlight { background: #222; }
+/* Celdas editables */
+.tracker-cell {
+    width: 25%; text-align: center; cursor: text;
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0;
+    outline: none;
+}
+.tracker-cell.note-cell { color: var(--track-color); } /* Color de la nota */
+.tracker-cell.inst-cell { color: #ea4; }
+.tracker-cell:focus { border-color: var(--track-color); background: #2a2a2d; color: var(--track-color); }
 
-/* Playhead (Barra de reproducción fija al centro estilo tracker clásico o móvil) */
+/* Playhead */
 .playhead {
     position: absolute;
     top: 50%; left: 0; right: 0;
     height: 20px;
-    background: rgba(255, 153, 0, 0.2);
-    border-top: 1px solid var(--accent);
-    border-bottom: 1px solid var(--accent);
+    background: rgba(var(--track-color-rgb), 0.2);
+    border-top: 1px solid var(--track-color);
+    border-bottom: 1px solid var(--track-color);
     pointer-events: none;
     z-index: 5;
     margin-top: -10px;
+    /* Usaremos una variable CSS para el color RGB del playhead */
+    --track-color-rgb: 255, 153, 0;
+}
+
+.track-footer {
+    background: #2a2a2d;
+    padding: 5px;
+    border-top: 1px solid #000;
+    text-align: center;
+}
+.add-row-btn {
+    background: #444; border: 1px solid #000; color: #fff;
+    padding: 2px 10px; cursor: pointer; font-family: inherit; font-size: 10px;
+}
+.add-row-btn:hover { background: #555; }
+
+.wave-chart-container canvas { /* Asegurar que el canvas de lightningchart se ajuste */
+    width: 100% !important;
+    height: 100% !important;
 }
