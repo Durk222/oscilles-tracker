@@ -126,32 +126,45 @@ class AudioVisualizer {
         setTimeout(() => this.initChart(), 0);
     }
 
-    initChart() {
-        const { lightningChart, AxisTickStrategies, Themes, ColorHEX, SolidLine, SolidFill } = lcjs;
+initChart() {
+    const { lightningChart, AxisTickStrategies, Themes, ColorHEX, SolidLine, SolidFill } = lcjs;
 
-        this.chart = lightningChart().ChartXY({
-            container: this.container,
-            theme: Themes.darkGold,
-            disableAnimations: true
-        }).setTitle('').setPadding(0);
+    this.chart = lightningChart().ChartXY({
+        container: this.container,
+        theme: Themes.darkGold,
+        disableAnimations: true
+    }).setTitle('').setPadding(0);
 
-        // Configuración para ONDA VERTICAL
-        // Eje X = Amplitud (izquierda/derecha)
-        this.chart.getDefaultAxisX()
-            .setTickStrategy(AxisTickStrategies.Empty)
-            .setInterval(-140, 140)
-            .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
+    // EJE X: Amplitud (Izquierda a Derecha)
+    // Lo fijamos de -128 a 128 para que la onda no se salga ni se mueva el eje
+    this.chart.getDefaultAxisX()
+        .setTickStrategy(AxisTickStrategies.Empty)
+        .setInterval(-128, 128) 
+        .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
 
-        // Eje Y = Tiempo (arriba/abajo)
-        this.chart.getDefaultAxisY()
-            .setTickStrategy(AxisTickStrategies.Empty)
-            .setInterval(0, 128)
-            .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
+    this.chart.getDefaultAxisX()
+    .setInterval(-128, 128)
+    .setScrollStrategy(undefined); // <--- AÑADE ESTO
 
-        this.lineSeries = this.chart.addLineSeries();
-        this.updateColorStyle(this.color);
-        this.animate();
-    }
+    this.chart.getDefaultAxisY()
+    .setInterval(0, 128)
+    .setScrollStrategy(undefined); // <--- AÑADE ESTO
+
+    // EJE Y: El cuerpo de la onda (Arriba a Abajo)
+    // 0 a 128 coincide con la cantidad de puntos que dibujamos (512 / 4 = 128)
+    this.chart.getDefaultAxisY()
+        .setTickStrategy(AxisTickStrategies.Empty)
+        .setInterval(0, 128)
+        .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
+
+    this.lineSeries = this.chart.addLineSeries();
+    
+    // Aplicar colores inmediatamente al crear
+    this.updateColorStyle(this.color);
+    this.setBackgroundColor(this.adjustColorBrightness(this.color, -80)); // Función de apoyo
+    
+    this.animate();
+}
 
     updateColorStyle(hexColor) {
         if (!this.lineSeries) return;
@@ -173,6 +186,14 @@ class AudioVisualizer {
     setColor(newColor) {
         this.color = newColor;
         this.updateColorStyle(newColor);
+    }
+
+    adjustColorBrightness(hex, percent) {
+    let r = parseInt(hex.substring(1,3),16), g = parseInt(hex.substring(3,5),16), b = parseInt(hex.substring(5,7),16);
+    r = Math.max(0, Math.min(255, r + percent));
+    g = Math.max(0, Math.min(255, g + percent));
+    b = Math.max(0, Math.min(255, b + percent));
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
 
     animate() {
@@ -215,16 +236,18 @@ class Track {
         this.initColorPicker();
         this.initGrid();
         
-        const midiCanvas = this.element.querySelector('.midi-canvas');
-        this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
+    const midiCanvas = this.element.querySelector('.midi-canvas');
+    this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
 
-        const waveContainer = this.element.querySelector('.wave-chart-container');
-        const chartId = `chart-container-${this.id}`;
-        waveContainer.id = chartId; 
-        this.audioVisualizer = new AudioVisualizer(chartId, this.analyser, this.color);
-        
-        this.element.querySelector('.add-row-btn').addEventListener('click', () => this.addRow());
+    const waveContainer = this.element.querySelector('.wave-chart-container');
+    waveContainer.id = `chart-container-${this.id}`; 
+    this.audioVisualizer = new AudioVisualizer(waveContainer.id, this.analyser, this.color);
+    
+    // USAMOS UN PEQUEÑO TIMEOUT:
+    // Esto asegura que LightningChart ya exista antes de pedirle que cambie de negro a color
+    setTimeout(() => {
         this.updateColor(this.color);
+    }, 50);
     }
 
     initColorPicker() {
