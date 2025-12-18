@@ -1,9 +1,23 @@
 //OSCILLESTRACKER MAIN SCRIPT.JS. . . 
 // --- CONFIGURACIÓN GLOBAL ---
 const KEYBOARD_MAP = {
-    'z': 'C-', 's': 'C#', 'x': 'D-', 'd': 'D#', 'c': 'E-', 'v': 'F-',
-    'g': 'F#', 'b': 'G-', 'h': 'G#', 'n': 'A-', 'j': 'A#', 'm': 'B-',
-    ',': 'C-' // Octava siguiente
+// Octava 4 (Fila inferior)
+    'z': { note: 'C-', oct: 4 }, 's': { note: 'C#', oct: 4 },
+    'x': { note: 'D-', oct: 4 }, 'd': { note: 'D#', oct: 4 },
+    'c': { note: 'E-', oct: 4 }, 'v': { note: 'F-', oct: 4 },
+    'g': { note: 'F#', oct: 4 }, 'b': { note: 'G-', oct: 4 },
+    'h': { note: 'G#', oct: 4 }, 'n': { note: 'A-', oct: 4 },
+    'j': { note: 'A#', oct: 4 }, 'm': { note: 'B-', oct: 4 },
+    ',': { note: 'C-', oct: 5 }, // Salto a octava siguiente
+
+    // Octava 5 (Fila superior - QWERTY)
+    'q': { note: 'C-', oct: 5 }, '2': { note: 'C#', oct: 5 },
+    'w': { note: 'D-', oct: 5 }, '3': { note: 'D#', oct: 5 },
+    'e': { note: 'E-', oct: 5 }, 'r': { note: 'F-', oct: 5 },
+    '5': { note: 'F#', oct: 5 }, 't': { note: 'G-', oct: 5 },
+    '6': { note: 'G#', oct: 5 }, 'y': { note: 'A-', oct: 5 },
+    '7': { note: 'A#', oct: 5 }, 'u': { note: 'B-', oct: 5 },
+    'i': { note: 'C-', oct: 6 }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -300,18 +314,23 @@ class Track {
             noteInput.focus();
         });
 
-        noteInput.addEventListener('keydown', (e) => {
-            e.preventDefault();
-            const key = e.key.toLowerCase();
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                this.updateNoteCell(index, '---');
-            } else if (KEYBOARD_MAP[key]) {
-                const fullNote = KEYBOARD_MAP[key] + (key === ',' ? 5 : 4);
-                this.updateNoteCell(index, fullNote);
-                this.audioEngine.playNote(fullNote, '01', 'FF', this.trackGain);
-                // Auto-advance
-                const nextRow = container.children[index + 1];
-                if (nextRow) nextRow.querySelector('.note-cell').focus();
+    noteInput.addEventListener('keydown', (e) => {
+    e.preventDefault();
+    const key = e.key.toLowerCase();
+    
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        this.updateNoteCell(index, '---');
+    } else if (KEYBOARD_MAP[key]) {
+        // Obtenemos los datos del nuevo mapa
+        const noteInfo = KEYBOARD_MAP[key];
+        const fullNote = noteInfo.note + noteInfo.oct; // Ej: "C-" + 5 = "C-5"
+        
+        this.updateNoteCell(index, fullNote);
+        this.audioEngine.playNote(fullNote, '01', 'FF', this.trackGain);
+        
+        // Auto-avance
+        const nextRow = container.children[index + 1];
+        if (nextRow) nextRow.querySelector('.note-cell').focus();
             }
         });
     }
