@@ -1,3 +1,4 @@
+/* VARIABLES GLOBALES Y COLORES BASE */
 :root {
     --bg-dark: #121214;
     --rack-bg: #1e1e20;
@@ -13,17 +14,17 @@ body {
     color: var(--text-main);
     font-family: 'Roboto Mono', monospace;
     margin: 0;
-    overflow: hidden;
+    overflow: hidden; /* Evita scrolls raros del navegador */
 }
 
-/* Layout General */
+/* CONTENEDOR PRINCIPAL */
 .app-container {
     display: flex;
     flex-direction: column;
     height: 100vh;
 }
 
-/* Header Transport */
+/* BARRA SUPERIOR (TRANSPORT) */
 .rack-header {
     background-color: var(--panel-bg);
     border-bottom: 2px solid #000;
@@ -43,10 +44,11 @@ body {
     padding: 5px 15px; cursor: pointer; font-family: inherit;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
     margin-right: 5px;
+    transition: background 0.2s;
 }
 .transport button:active { background: #333; transform: translateY(1px); }
 
-/* Cuerpo del Rack */
+/* ÁREA DEL RACK (DONDE VAN LAS PISTAS) */
 .rack-body {
     flex: 1;
     overflow-y: auto;
@@ -60,20 +62,20 @@ body {
     );
 }
 
-/* El Módulo de la Pista */
+/* EL MÓDULO DE LA PISTA (TRACK) */
 .track-module {
-    /* El color de la pista se define por variable CSS */
     --track-color: #ff9900;
-    --track-color-dark: #cc7a00; /* Un tono más oscuro */
+    --track-color-dark: #1a1000;
+    --track-color-rgb: 255, 153, 0;
     background-color: var(--panel-bg);
     border: 1px solid #000;
     border-radius: 4px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    width: 400px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    width: 450px; /* Un poco más ancho para los números de fila */
     margin: 0 auto 20px auto;
     display: flex;
     flex-direction: column;
-    border-top: 3px solid var(--track-color); /* Borde superior del color de la pista */
+    border-top: 4px solid var(--track-color);
 }
 
 .track-header {
@@ -84,25 +86,14 @@ body {
     justify-content: space-between;
     align-items: center;
 }
-.track-name {
-    font-weight: bold; color: var(--track-color);
-    text-shadow: 0 0 5px rgba(var(--track-color-rgb), 0.4);
-    cursor: text;
-    border-bottom: 1px dashed transparent;
-}
-.track-name:focus { border-bottom-color: var(--track-color); outline: none; }
 
-.track-controls {
-    display: flex;
-    align-items: center;
-}
+.track-name { font-weight: bold; color: var(--track-color); cursor: text; }
+
 .track-color-picker {
     width: 30px; height: 20px; border: none; padding: 0; cursor: pointer; background: none;
 }
-.track-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
-.track-color-picker::-webkit-color-swatch { border: 1px solid #000; border-radius: 2px; }
 
-/* Las 3 Columnas */
+/* INTERFAZ DEL TRACKER (3 COLUMNAS) */
 .track-interface {
     display: flex;
     height: 400px;
@@ -110,85 +101,103 @@ body {
     background: #000;
 }
 
-.column {
-    position: relative;
-    border-right: 1px solid var(--border);
-}
-/* Paneles laterales con fondo del color de la pista pero más oscuro */
-.col-left { width: 60px; background: var(--track-color-dark); }
-.col-mid { flex: 1; background: #181818; overflow: hidden; position: relative; }
-.col-right { width: 60px; background: var(--track-color-dark); border-right: none; }
+.column { position: relative; border-right: 1px solid var(--border); }
+
+/* Fondos dinámicos para los lados */
+.col-left { width: 70px; background: var(--track-color-dark); }
+.col-mid { flex: 1; background: #0a0a0a; overflow: hidden; position: relative; }
+.col-right { width: 70px; background: var(--track-color-dark); border-right: none; }
 
 .label-overlay {
     position: absolute; top: 2px; left: 2px;
-    font-size: 8px; color: var(--text-main); pointer-events: none;
-    z-index: 10;
+    font-size: 8px; color: #fff; opacity: 0.5; z-index: 10;
 }
 
-/* Estilos del Tracker (Columna del medio) */
+/* LA CUADRÍCULA (TRACKER GRID) */
 .tracker-header {
     background: #222; font-size: 10px; color: #666;
     padding: 2px; text-align: center; border-bottom: 1px solid #333;
 }
-.tracker-grid-container {
-    height: calc(100% - 20px); /* Altura ajustada para el header */
-    overflow-y: auto;
-}
+
 .tracker-rows {
     position: relative;
-    transition: transform 0.1s linear; /* Animación suave del scroll */
+    /* No usamos transition suave aquí para que se sienta como un tracker real de baja latencia */
 }
-.tracker-row {
-    display: flex; justify-content: space-around;
-    padding: 2px 0; font-size: 11px; color: #888;
-    border-bottom: 1px solid #222;
-    height: 15px; /* Altura fija para el cálculo del scroll */
-    box-sizing: border-box;
-}
-.tracker-row.highlight { background: #222; }
-/* Celdas editables */
-.tracker-cell {
-    width: 25%; text-align: center; cursor: text;
-    border: 1px solid transparent;
-    background: transparent;
-    color: inherit;
-    font-family: inherit;
-    font-size: inherit;
-    padding: 0;
-    outline: none;
-}
-.tracker-cell.note-cell { color: var(--track-color); } /* Color de la nota */
-.tracker-cell.inst-cell { color: #ea4; }
-.tracker-cell:focus { border-color: var(--track-color); background: #2a2a2d; color: var(--track-color); }
 
-/* Playhead */
+.tracker-row {
+    display: flex; 
+    align-items: center;
+    height: 15px; 
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.tracker-row.highlight { background: rgba(255,255,255,0.03); }
+
+/* Número de fila al estilo FT2 */
+.row-number {
+    width: 25px;
+    color: #444;
+    font-size: 9px;
+    text-align: center;
+    border-right: 1px solid #222;
+}
+
+/* CELDAS DE ENTRADA */
+.tracker-cell {
+    width: 25%;
+    text-align: center;
+    background: transparent;
+    border: none;
+    color: #888;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    outline: none;
+    cursor: default;
+}
+
+/* Estilo especial para cuando pulsas una nota */
+.tracker-cell.note-cell {
+    color: var(--track-color);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.tracker-cell.note-cell:focus, .tracker-cell.note-cell.editing {
+    background: #fff;
+    color: #000;
+}
+
+/* Brillo cuando el secuenciador pasa por la fila */
+.tracker-row.flash {
+    background-color: rgba(var(--track-color-rgb), 0.3) !important;
+}
+
+/* PLAYHEAD (LÍNEA CENTRAL) */
 .playhead {
     position: absolute;
     top: 50%; left: 0; right: 0;
-    height: 20px;
-    background: rgba(var(--track-color-rgb), 0.2);
+    height: 16px;
+    background: rgba(var(--track-color-rgb), 0.15);
     border-top: 1px solid var(--track-color);
     border-bottom: 1px solid var(--track-color);
     pointer-events: none;
     z-index: 5;
-    margin-top: -10px;
-    /* Usaremos una variable CSS para el color RGB del playhead */
-    --track-color-rgb: 255, 153, 0;
+    margin-top: -8px;
 }
 
+/* PIE DE PISTA */
 .track-footer {
-    background: #2a2a2d;
-    padding: 5px;
-    border-top: 1px solid #000;
-    text-align: center;
+    background: #2a2a2d; padding: 5px;
+    border-top: 1px solid #000; text-align: center;
 }
+
 .add-row-btn {
     background: #444; border: 1px solid #000; color: #fff;
     padding: 2px 10px; cursor: pointer; font-family: inherit; font-size: 10px;
 }
-.add-row-btn:hover { background: #555; }
 
-.wave-chart-container canvas { /* Asegurar que el canvas de lightningchart se ajuste */
-    width: 100% !important;
-    height: 100% !important;
+/* CONTENEDOR DE LA ONDA */
+.wave-chart-container {
+    width: 100%;
+    height: 100%;
 }
