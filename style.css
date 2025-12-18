@@ -228,3 +228,19 @@ body {
     outline: 1px solid var(--track-color);
     color: #fff;
 }
+
+.delete-track-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 10px;
+    padding: 0 5px;
+    transition: color 0.2s;
+}
+
+.delete-track-btn:hover {
+    color: #ff4444; /* Rojo al pasar el mouse */
+}
