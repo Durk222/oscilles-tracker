@@ -410,13 +410,24 @@ class AppController {
             this.togglePlay();
         });
         document.getElementById('stopBtn').addEventListener('click', () => this.stop());
+        
+        // --- AÑADE ESTO ---
+       const addTrackBtn = document.getElementById('addTrackBtn'); 
+       if (addTrackBtn) {
+        addTrackBtn.addEventListener('click', () => this.addTrack());
+         }
+       // ------------------
         this.addTrack();
     }
 
     addTrack() {
-        const track = new Track(this.tracks.length, this, '#ff9900');
-        track.render(document.getElementById('rackBody'));
-        this.tracks.push(track);
+    // Genera un color aleatorio simple o usa una lista
+    const colors = ['#ff9900', '#00ccff', '#ff0055', '#22ff88', '#aa00ff', '#ffff00'];
+    const color = colors[this.tracks.length % colors.length];
+    
+    const track = new Track(this.tracks.length, this, color);
+    track.render(document.getElementById('rackBody'));
+    this.tracks.push(track);
     }
 
     togglePlay() {
