@@ -386,25 +386,61 @@ createRowElement(container, rowData, index) {
         noteInput.focus();
     });
 
-    noteInput.addEventListener('keydown', (e) => {
+noteInput.addEventListener('keydown', (e) => {
         e.preventDefault();
         const key = e.key;
+
+        // --- BORRAR NOTA ---
         if (key === 'Delete' || key === 'Backspace') {
             this.updateNoteCell(index, '---');
             this.updateVolCell(index, '--');
-        } else if (key === 'CapsLock') {
+            this.stopAllVoices();
+        } 
+        // --- COLOCAR OFF (NOTE CUT) ---
+        else if (key === 'CapsLock') {
             this.updateNoteCell(index, '===');
+            this.stopAllVoices();
             this.moveFocus(container, index, '.note-cell');
-        } else if (KEYBOARD_MAP[key.toLowerCase()]) {
+        } 
+        // --- ESCRIBIR NOTA ---
+        else if (KEYBOARD_MAP[key.toLowerCase()]) {
             const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
             const fullNote = noteInfo.note + noteInfo.oct;
+            
             this.updateNoteCell(index, fullNote);
-            if (this.patternData[index].vol === '--') this.updateVolCell(index, '64'); 
+            
+            if (this.patternData[index].vol === '--') {
+                this.updateVolCell(index, '64'); 
+            }
             
             this.stopAllVoices();
-            const voice = this.audioEngine.playNote(fullNote, '01', this.patternData[index].vol, this.trackGain, this.waveType);
-            if (voice) this.activeVoices.push(voice);
             
+            const fxCommand = this.patternData[index].fx !== '---' ? this.patternData[index].fx : null;
+            
+            const voice = this.audioEngine.playNote(
+                fullNote, 
+                '01', 
+                this.patternData[index].vol, 
+                this.trackGain, 
+                this.waveType,
+                fxCommand
+            );
+            
+            if (voice) {
+                this.activeVoices.push(voice);
+                
+                // --- LÓGICA ANTI-MIGRAÑA (Solo en modo Edición) ---
+                if (!this.app.isPlaying) {
+                    const previewDuration = 300; 
+                    setTimeout(() => {
+                        const now = this.audioEngine.audioCtx.currentTime;
+                        voice.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                        voice.osc.stop(now + 0.12);
+                        
+                        this.activeVoices = this.activeVoices.filter(v => v !== voice);
+                    }, previewDuration);
+                }
+            }
             this.moveFocus(container, index, '.note-cell');
         }
     });
