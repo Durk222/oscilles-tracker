@@ -108,6 +108,22 @@
         </div>
     </template>
 
+    <div id="pianoRollModal" class="modal-overlay hidden">
+    <div class="piano-roll-window">
+        <div class="piano-header">
+            <span id="prTrackName">TRACK EDIT</span>
+            <button id="closePrBtn">X</button>
+        </div>
+        <div class="piano-body">
+            <canvas id="pianoKeysCanvas" width="40" height="600"></canvas>
+            <div class="grid-container">
+                <canvas id="pianoGridCanvas" width="1200" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
     <script src="script.js"></script>
+    <script src="script_pianoroll.js"></script>
 </body>
 </html>
