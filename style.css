@@ -166,23 +166,20 @@ body {
     margin: 0; 
 } 
 
-/* Ajustamos el espacio del número de fila para que coincida exactamente con .row-number */
 .tracker-header::before { 
     content: ""; 
-    width: 25px; /* Mismo ancho que .row-number */
+    width: 25px;
     min-width: 25px;
     height: 100%; 
     border-right: 1px solid #333; 
     display: block; 
 } 
 
-/* Esto centra cada título sobre su columna de entrada */
 .tracker-header span, .tracker-header div:not(.row-num-col) { 
     flex: 1; 
     text-align: center; 
 }
 
-/* CORRECCIÓN 1: El contenedor de filas necesita posición para el script */ 
 .tracker-rows { 
     position: absolute; 
     width: 100%;
@@ -234,7 +231,6 @@ body {
     background-color: rgba(var(--track-color-rgb), 0.3) !important; 
 } 
 
-/* CORRECCIÓN 2: Playhead debe estar sobre las filas pero fijo en el contenedor */ 
 .playhead { 
     position: absolute; 
     top: 0;  
@@ -473,7 +469,6 @@ body {
     overflow: hidden; 
 } 
 
-/* CORRECCIÓN 3: El VU fill necesita ID para que el JS lo encuentre */ 
 #masterVuFill, .vu-fill { 
     height: 100%; 
     width: 0%; 
@@ -481,3 +476,13 @@ body {
     transition: width 0.1s; 
 } 
 .vu-label { font-size: 8px; color: #777; font-weight: bold; }
+
+/* Estilo para que el Note-Off sea un bloque visual sólido */
+.note-cell[value="==="] {
+    background-color: var(--track-color) !important;
+    color: transparent !important;
+    border-radius: 2px;
+    height: 14px;
+    margin-top: 1px;
+    opacity: 0.8;
+}
