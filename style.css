@@ -347,21 +347,65 @@ body {
     outline: none;
 }
 
-/* Toolbar */
+/* --- TOOLBAR Y DROPDOWNS --- */
 .main-toolbar {
     background: #1a1a1a;
     display: flex;
-    gap: 15px;
-    padding: 5px 15px;
+    gap: 5px;
+    padding: 0 15px;
     font-size: 11px;
     border-bottom: 1px solid #333;
     color: #888;
     height: 25px;
+    align-items: center;
+    z-index: 1000; /* Asegura que los menús floten sobre las pistas */
+}
+.toolbar-item { 
+    cursor: pointer; 
+    position: relative; 
+    padding: 4px 10px;
 }
 
-.toolbar-item { cursor: pointer; position: relative; }
-.toolbar-item:hover { color: #fff; }
+.toolbar-item:hover { 
+    background: #333;
+    color: #fff; 
+}
 
+/* El contenedor del menú */
+.dropdown {
+    display: none; /* Oculto por defecto */
+    position: absolute;
+    top: 100%; /* Justo debajo del item */
+    left: 0;
+    background: #2a2a2d;
+    border: 1px solid #000;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    min-width: 160px;
+    z-index: 9999;
+}
+
+/* Mostrar cuando el padre tiene el mouse encima */
+.toolbar-item:hover .dropdown {
+    display: block;
+}
+
+/* Estilo para cada opción dentro del menú */
+.dropdown span {
+    display: block; /* Obliga a que cada opción use una línea nueva */
+    padding: 8px 15px;
+    color: #ccc;
+    text-align: left;
+    border-bottom: 1px solid #38383b;
+}
+
+.dropdown span:last-child {
+    border-bottom: none;
+}
+
+.dropdown span:hover {
+    background: #444;
+    color: #22ff88; /* Color neón que usamos en el BPM */
+}
 /* --- EFECTO DE APAGADO (MUTE / SOLO) --- */
 /* Cuando el track está silenciado por Mute o por el Solo de otro */
 .track-module.muted-effect {
