@@ -46,18 +46,18 @@ class AudioEngine {
         }
     }
 
-    playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth') {
-        this.checkContext();
-        if (noteName === '---' || noteName === '===') return null;
+playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth') {
+    this.checkContext();
+    if (noteName === '---' || noteName === '===') return null;
 
-        const freq = this.noteToFreq(noteName);
-        if (!freq) return null;
+    const freq = this.noteToFreq(noteName);
+    if (!freq) return null;
 
-        const osc = this.audioCtx.createOscillator();
-        const gainNode = this.audioCtx.createGain();
-        
-        osc.type = waveType; 
-        osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+    const osc = this.audioCtx.createOscillator();
+    const gainNode = this.audioCtx.createGain();
+    
+    osc.type = waveType; 
+    osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
 
     let volVal = 0.5;
     if (volumeHex && volumeHex !== '--') {
@@ -72,7 +72,7 @@ class AudioEngine {
 
     osc.start();
     return { osc, gainNode };
-    }
+}
 
     noteToFreq(note) {
         const notes = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
@@ -370,16 +370,22 @@ class Track {
         });
     }
 
-    stopAllVoices() {
-        this.activeVoices.forEach(v => {
-            try {
-                v.gainNode.gain.cancelScheduledValues(this.audioEngine.audioCtx.currentTime);
-                v.gainNode.gain.setValueAtTime(0, this.audioEngine.audioCtx.currentTime);
-                v.osc.stop();
-            } catch(e) {}
-        });
-        this.activeVoices = [];
-    }
+stopAllVoices() {
+    const releaseTime = 0.1; 
+    const now = this.audioEngine.audioCtx.currentTime;
+
+    this.activeVoices.forEach(v => {
+        try {
+            v.gainNode.gain.cancelScheduledValues(now);
+            v.gainNode.gain.setValueAtTime(v.gainNode.gain.value, now);
+            v.gainNode.gain.exponentialRampToValueAtTime(0.001, now + releaseTime);
+            
+            v.osc.stop(now + releaseTime);
+        } catch(e) {
+        }
+    });
+    this.activeVoices = [];
+}
 
      updateNoteCell(index, noteValue) {
         this.patternData[index].note = noteValue;
@@ -387,7 +393,7 @@ class Track {
         const cell = noteInputs[index];
     
         if (cell) {
-        cell.value = noteValue;
+        cell.value = (noteValue === '===') ? ". . ." : noteValue;
         cell.setAttribute('data-note', noteValue);
         }
     
@@ -626,8 +632,7 @@ this.tracks.forEach(track => {
                     rowData.vol, 
                     track.trackGain, 
                     track.waveType
-                );
-                
+                ); 
                 if (voice) track.activeVoices.push(voice);
 
                 const rowEl = track.element.querySelectorAll('.tracker-row')[index];
