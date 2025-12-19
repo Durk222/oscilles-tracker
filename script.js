@@ -373,6 +373,12 @@ createRowElement(container, rowData, index) {
     
     container.appendChild(row);
 
+    // Función auxiliar para seleccionar el texto al hacer clic (Edición rápida)
+    const setupQuickEdit = (input) => {
+        input.addEventListener('focus', () => input.select());
+        input.addEventListener('click', () => input.select());
+    };
+
     // --- LÓGICA DE NOTA ---
     const noteInput = row.querySelector('.note-cell');
     noteInput.addEventListener('click', () => {
@@ -388,62 +394,73 @@ createRowElement(container, rowData, index) {
             this.updateVolCell(index, '--');
         } else if (key === 'CapsLock') {
             this.updateNoteCell(index, '===');
-            const nextRow = container.children[index + 1];
-            if (nextRow) nextRow.querySelector('.note-cell').focus();
+            this.moveFocus(container, index, '.note-cell');
         } else if (KEYBOARD_MAP[key.toLowerCase()]) {
             const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
             const fullNote = noteInfo.note + noteInfo.oct;
             this.updateNoteCell(index, fullNote);
-            this.updateVolCell(index, '64'); 
+            if (this.patternData[index].vol === '--') this.updateVolCell(index, '64'); 
+            
             this.stopAllVoices();
-            const voice = this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
+            const voice = this.audioEngine.playNote(fullNote, '01', this.patternData[index].vol, this.trackGain, this.waveType);
             if (voice) this.activeVoices.push(voice);
-            const nextRow = container.children[index + 1];
-            if (nextRow) nextRow.querySelector('.note-cell').focus();
+            
+            this.moveFocus(container, index, '.note-cell');
         }
     });
 
     // --- LÓGICA DE INSTRUMENTO ---
     const instInput = row.querySelector('.inst-cell');
+    setupQuickEdit(instInput);
     instInput.addEventListener('input', (e) => {
         this.patternData[index].inst = e.target.value.toUpperCase().padStart(2, '0').substring(0, 2);
     });
 
     // --- LÓGICA DE VOLUMEN ---
     const volInput = row.querySelector('.vol-cell');
+    setupQuickEdit(volInput);
     volInput.addEventListener('keydown', (e) => {
         if (e.key >= '0' && e.key <= '9') {
             e.preventDefault();
             const volMap = {'1':'0A','2':'14','3':'1E','4':'28','5':'32','6':'3C','7':'46','8':'50','9':'5A','0':'64'};
-            const newVol = volMap[e.key];
-            this.updateVolCell(index, newVol);
-            const nextRow = container.children[index + 1];
-            if (nextRow) nextRow.querySelector('.vol-cell').focus();
+            this.updateVolCell(index, volMap[e.key]);
+            this.moveFocus(container, index, '.vol-cell');
         }
     });
 
+    // --- LÓGICA DE EFECTOS (FX) ---
     const fxInput = row.querySelector('.fx-cell');
-    fxInput.addEventListener('input', (e) => {
-        let val = e.target.value.toUpperCase();
-        if (val === '') {
-            this.updateFXCell(index, '---');
-        } else {
-            this.updateFXCell(index, val);
+    setupQuickEdit(fxInput);
+    
+    fxInput.addEventListener('keyup', (e) => {
+        if (fxInput.value.length === 3) {
+            this.updateFXCell(index, fxInput.value);
+            this.moveFocus(container, index, '.fx-cell');
         }
+    });
+
+    fxInput.addEventListener('change', (e) => {
+        this.updateFXCell(index, e.target.value);
     });
 
     fxInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            const nextRow = container.children[index + 1];
-            if (nextRow) nextRow.querySelector('.fx-cell').focus();
+            this.moveFocus(container, index, '.fx-cell');
         }
         if (e.key === 'Delete' || e.key === 'Backspace') {
             if (fxInput.value.length <= 1) {
                 this.updateFXCell(index, '---');
+                e.preventDefault();
             }
         }
     });
+}
+moveFocus(container, currentIndex, selector) {
+    const nextRow = container.children[currentIndex + 1];
+    if (nextRow) {
+        nextRow.querySelector(selector).focus();
+    }
 }
 stopAllVoices() {
     const releaseTime = 0.1; 
