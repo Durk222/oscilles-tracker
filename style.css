@@ -191,7 +191,7 @@ body {
     height: 15px; 
     display: flex; 
     align-items: center; 
-    justify-content: center;
+    justify-content: flex-start;
     box-sizing: border-box; 
 } 
 
@@ -478,36 +478,40 @@ body {
 } 
 .vu-label { font-size: 8px; color: #777; font-weight: bold; }
 /* --- ESTILOS FINALES DE CELDAS --- */
-.tracker-cell:focus { 
-    background-color: rgba(255, 255, 255, 0.2); 
-    outline: 1px solid var(--track-color); 
-    color: #fff; 
-}
 .tracker-cell.note-cell[data-note="==="] {
     background-color: transparent !important;
     color: var(--track-color) !important;
     border: 1px solid var(--track-color) !important;
     
-    display: inline-block; 
-    height: 10px !important;
-    min-height: 10px !important;
-    width: 32px !important; /* Espacio suficiente para los puntos */
-    
-    line-height: 8px;
-    font-size: 8px;
-    padding: 0 !important;
-    margin: 2px 0 0 5px !important;
-    border-radius: 0;
-    box-shadow: none !important;
-    text-align: center;
-    filter: brightness(0.6);
-    vertical-align: middle;
-}
+    /* Mantenemos inline-flex para no romper la línea */
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
 
+    /* Tamaño fijo que NO exceda los 15px de la fila */
+    height: 10px !important;
+    width: 35px !important; 
+    
+    margin: 0 auto !important; 
+    padding: 0 !important;
+    font-size: 8px;
+    line-height: 1;
+    
+    border-radius: 2px;
+    filter: brightness(0.7);
+    cursor: pointer;
+    box-sizing: border-box;
+}
 .tracker-cell.note-cell[data-note="==="]:focus {
     background-color: rgba(var(--track-color-rgb), 0.2) !important;
-    color: var(--track-color) !important;
-    filter: brightness(1.1);
     outline: none !important;
-    border-style: double !important;
+    filter: brightness(1.2);
+    border-style: solid !important;
+}
+.tracker-cell {
+    height: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
 }
