@@ -44,7 +44,7 @@ class AudioEngine {
         }
     }
 
-    playNote(noteName, instrumentId, volumeHex, trackGainNode) {
+    playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth') {
         this.checkContext();
         if (noteName === '---') return;
 
@@ -52,13 +52,12 @@ class AudioEngine {
         if (!freq) return;
 
         const osc = this.audioCtx.createOscillator();
-        osc.type = 'sawtooth'; 
+        osc.type = waveType; 
         osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
 
         const gainNode = this.audioCtx.createGain();
-        let volVal = 0.5; // Por defecto
+        let volVal = 0.5;
         if (volumeHex && volumeHex !== '--') {
-        // Si usas Hexadecimal:
         volVal = parseInt(volumeHex, 16) / 100; 
         }
         
@@ -234,12 +233,15 @@ class Track {
         this.app = appController;
         this.audioEngine = appController.audioEngine;
         this.color = initialColor;
+        this.waveType = 'sawtooth';
         this.trackGain = this.audioEngine.audioCtx.createGain();
         this.trackGain.connect(this.audioEngine.masterGain);
         this.analyser = this.audioEngine.audioCtx.createAnalyser();
         this.analyser.fftSize = 512; 
         this.trackGain.connect(this.analyser);
         this.patternData = Array(64).fill(null).map(() => ({ note: '---', inst: '--', vol: '--', fx: '---' }));
+        this.isMuted = false;
+        this.isSolo = false;
     }
 
     render(container) {
@@ -247,6 +249,27 @@ class Track {
         const clone = template.content.cloneNode(true);
         this.element = clone.querySelector('.track-module');
         container.appendChild(this.element);
+
+        const muteBtn = this.element.querySelector('.mute-btn');
+        const soloBtn = this.element.querySelector('.solo-btn');
+
+        // SELECTOR DE ONDA
+        const waveSelect = this.element.querySelector('.wave-type-select');
+        if (waveSelect) {
+            this.waveType = waveSelect.value; // Lee el valor inicial del HTML
+            waveSelect.addEventListener('change', (e) => {
+                this.waveType = e.target.value; // Cambia a SAW, SQR, TRI o SIN
+            });
+        }
+    //  BOTONES MUTE Y SOLO
+    muteBtn.addEventListener('click', () => {
+    this.isMuted = !this.isMuted;
+    muteBtn.classList.toggle('active', this.isMuted);
+         });
+
+        soloBtn.addEventListener('click', () => {
+        this.app.toggleSolo(this);
+        });
 
         this.initColorPicker();
         this.initGrid();
@@ -345,10 +368,9 @@ if (deleteBtn) {
         this.updateNoteCell(index, fullNote);
         
         // Insertamos Volumen por defecto (64 hex = 100 decimal aprox)
-        // Si prefieres usar decimal puro (100), pon '100'
         this.updateVolCell(index, '64'); 
         
-        this.audioEngine.playNote(fullNote, '01', '64', this.trackGain);
+        this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
         
         const nextRow = container.children[index + 1];
         if (nextRow) nextRow.querySelector('.note-cell').focus();
@@ -474,6 +496,20 @@ class AppController {
         this.intervalId = setInterval(() => this.playRow(), msPerRow);
     }
 
+    toggleSolo(trackToSolo) {
+    trackToSolo.isSolo = !trackToSolo.isSolo;
+    
+    // Forzamos a que cada botón refleje EXACTAMENTE el estado isSolo de su pista
+    this.tracks.forEach(t => {
+        const btn = t.element.querySelector('.solo-btn');
+        if (t.isSolo) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+            }
+       });
+    }
+
     stop() {
         this.isPlaying = false;
         document.getElementById('playBtn').textContent = 'PLAY';
@@ -482,20 +518,46 @@ class AppController {
         this.updatePlayheadPosition();
     }
 
-    playRow() {
-        this.tracks.forEach(track => {
-            const index = this.currentRow % track.patternData.length;
-            const rowData = track.patternData[index];
-            if (rowData && rowData.note !== '---') {
-                const rowEl = track.element.querySelectorAll('.tracker-row')[index];
+playRow() {
+    // 1. Comprobamos si hay alguna pista con el botón SOLO activo en todo el rack
+    const anySolo = this.tracks.some(t => t.isSolo);
+
+    this.tracks.forEach(track => {
+        // 2. Definimos la lógica de silencio:
+        // - Si la pista tiene Mute activo -> SILENCIO
+        // - Si hay alguna otra pista en Solo y esta NO lo está -> SILENCIO
+        const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
+
+        // Si debe estar en silencio, saltamos esta iteración del bucle para esta pista
+        if (shouldBeSilent) return; 
+
+        const index = this.currentRow % track.patternData.length;
+        const rowData = track.patternData[index];
+
+        // 3. Si hay una nota válida en esta celda
+        if (rowData && rowData.note !== '---') {
+            // EFECTO VISUAL: Destello en la fila que está sonando
+            const rowEl = track.element.querySelectorAll('.tracker-row')[index];
+            if (rowEl) {
                 rowEl.classList.add('flash');
                 setTimeout(() => rowEl.classList.remove('flash'), 100);
-                this.audioEngine.playNote(rowData.note, rowData.inst, rowData.vol, track.trackGain);
             }
-        });
-        this.updatePlayheadPosition();
-        this.currentRow++;
-    }
+
+            // MOTOR DE AUDIO: Enviamos la nota, volumen y el tipo de onda elegido en el selector
+            this.audioEngine.playNote(
+                rowData.note, 
+                rowData.inst, 
+                rowData.vol, 
+                track.trackGain, 
+                track.waveType // Asegúrate de haber añadido track.waveType en la clase Track
+            );
+        }
+    });
+
+    // 4. Actualizamos la posición visual del tracker (scroll) y avanzamos la fila
+    this.updatePlayheadPosition();
+    this.currentRow++;
+}
 
     updatePlayheadPosition() {
         const offset = (this.currentRow % 64) * 15;
