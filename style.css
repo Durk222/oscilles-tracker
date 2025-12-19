@@ -50,30 +50,19 @@ body {
 
 .rack-body {
     flex: 1;
-    padding: 20px;
-    
-    /* Tu fondo original se mantiene */
-    background: repeating-linear-gradient(
-        45deg,
-        #1b1b1b,
-        #1b1b1b 10px,
-        #1e1e1e 10px,
-        #1e1e1e 20px
-    );
+    padding: 0;
+    background-color: #000
 
-    /* --- NUEVOS CAMBIOS PARA EL FLUJO DE PISTAS --- */
-    display: flex;             /* Las pistas se alinean usando Flexbox */
-    flex-direction: row;       /* Se colocan una al lado de la otra (horizontal) */
-    align-items: flex-start;   /* Las alinea en la parte superior */
-    gap: 15px;                 /* Espacio elegante entre cada pista */
+    /* --- FLUJO DE PISTAS --- */
+    display: flex;             
+    flex-direction: row;     
+    align-items: stretch;  /* Esto obliga a los hijos a medir lo mismo que el padre */
+    gap: 1px;             
     
-    /* Control de Scroll */
+    /* Control de Scroll y Dimensiones */
     overflow-x: auto;          /* Scroll horizontal si hay muchas pistas */
-    overflow-y: hidden;        /* Evita que el rack entero haga scroll vertical */
-    
-    /* Dimensiones */
-    min-height: 80vh;          /* Asegura que ocupe gran parte de la pantalla */
-    scroll-behavior: smooth;   /* Para que el scroll sea fluido */
+    overflow-y: hidden;       
+    height: calc(100vh - 85px); /* Ocupa todo el alto restante */
 }
 
 /* IMPORTANTE: Asegúrate de que los módulos de pista no se encojan */
@@ -88,14 +77,15 @@ body {
     --track-color-dark: #1a1000;
     --track-color-rgb: 255, 153, 0;
     background-color: var(--panel-bg);
-    border: 1px solid #000;
-    border-radius: 4px;
+    border: none;
+    border-radius: 0;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    width: 450px; /* Un poco más ancho para los números de fila */
-    margin: 0 auto 20px auto;
+    height: 100%;
+    width: 320px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    border-top: 4px solid var(--track-color);
+    border-top: 3px solid var(--track-color);
 }
 
 .track-header {
@@ -122,12 +112,17 @@ body {
 /* INTERFAZ DEL TRACKER (3 COLUMNAS) */
 .track-interface {
     display: flex;
-    height: 400px;
+    flex: 1;
     position: relative;
     background: #000;
+    overflow: hidden;
 }
 
-.column { position: relative; border-right: 1px solid var(--border); }
+.column { 
+    height: 100%; 
+    position: relative; 
+    border-right: 1px solid var(--border); 
+}
 
 /* Fondos dinámicos para los lados */
 .col-left { width: 70px; background: var(--track-color-dark); }
@@ -331,4 +326,44 @@ body {
     font-weight: bold;
     width: 50px;
     outline: none;
+}
+
+/* Toolbar */
+.main-toolbar {
+    background: #1a1a1a;
+    display: flex;
+    gap: 15px;
+    padding: 2px 15px;
+    font-size: 11px;
+    border-bottom: 1px solid #333;
+    color: #888;
+}
+
+.toolbar-item { cursor: pointer; position: relative; }
+.toolbar-item:hover { color: #fff; }
+
+/* --- EFECTO DE APAGADO (MUTE / SOLO) --- */
+/* Cuando el track está silenciado por Mute o por el Solo de otro */
+.track-module.muted-effect {
+    opacity: 0.4;
+    filter: grayscale(0.8) brightness(0.5);
+    pointer-events: none; /* Opcional: impide editar mientras está mudo */
+}
+
+/* Excepción: los botones de control siguen siendo clicables */
+.track-module.muted-effect .track-controls {
+    pointer-events: auto;
+}
+
+.track-module.muted-effect .wave-type-select,
+.track-module.muted-effect .track-name {
+    opacity: 0.6;
+}
+
+/* Permitir interacción con los botones aunque el track esté mudo */
+.track-module.muted-effect .mute-btn, 
+.track-module.muted-effect .solo-btn,
+.track-module.muted-effect .delete-track-btn {
+    pointer-events: auto;
+    filter: brightness(1.5); /* Resalta un poco los botones para poder "desmutear" */
 }
