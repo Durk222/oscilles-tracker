@@ -477,17 +477,21 @@ body {
 } 
 .vu-label { font-size: 8px; color: #777; font-weight: bold; }
 
-/* Note-off como bloque sólido del color del track */
+/* Estilo para el bloque de corte (Note-Off) */
 .note-cell[data-note="==="] {
     background-color: var(--track-color) !important;
     color: transparent !important;
     cursor: default;
-    border: none !important;
-    filter: brightness(0.7); /* Un poco más oscuro para diferenciarlo de una nota activa */
-    opacity: 1;
+    border-radius: 2px; 
+    margin: 2px 4px;    
+    height: 10px; 
+    filter: brightness(0.6);
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+    transition: all 0.1s ease;
 }
 
+/* Cuando pasas el foco, que brille un poco */
 .note-cell[data-note="==="]:focus {
-    outline: none;
-    box-shadow: 0 0 5px var(--track-color);
+    filter: brightness(1);
+    box-shadow: 0 0 8px var(--track-color);
 }
