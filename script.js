@@ -41,19 +41,43 @@ class AudioEngine {
             await this.audioCtx.resume();
         }
     }
-playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth') {
+playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth', fxCommand = null) {
     this.checkContext();
     if (noteName === '---' || noteName === '===') return null;
 
-    const freq = this.noteToFreq(noteName);
-    if (!freq) return null;
+    const baseFreq = this.noteToFreq(noteName);
+    if (!baseFreq) return null;
 
     const osc = this.audioCtx.createOscillator();
     const gainNode = this.audioCtx.createGain();
     
-    osc.type = waveType; 
-    osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+    osc.type = waveType;
+    osc.frequency.setValueAtTime(baseFreq, this.audioCtx.currentTime);
 
+    // --- LÓGICA DE ARPEGGIO (0xy) ---
+    if (fxCommand && fxCommand.startsWith('0')) {
+        const x = parseInt(fxCommand[1], 16);
+        const y = parseInt(fxCommand[2], 16);
+        
+        // Calculamos las frecuencias de las 3 notas del arpegio
+        const freq2 = baseFreq * Math.pow(2, x / 12);
+        const freq3 = baseFreq * Math.pow(2, y / 12);
+
+        const speed = 0.05; 
+        const now = this.audioCtx.currentTime;
+
+        // IMPORTANTE: cancelamos cualquier cambio futuro si la nota se detiene
+        osc.frequency.cancelScheduledValues(now);
+
+        for (let i = 0; i < 30; i++) {
+            let t = now + (i * speed * 3);
+            osc.frequency.setValueAtTime(baseFreq, t);
+            osc.frequency.setValueAtTime(freq2, t + speed);
+            osc.frequency.setValueAtTime(freq3, t + speed * 2);
+        }
+    }
+
+    // --- VOLUMEN ---
     let volVal = 0.5;
     if (volumeHex && volumeHex !== '--') {
         volVal = parseInt(volumeHex, 16) / 127; 
@@ -68,7 +92,6 @@ playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth'
     osc.start();
     return { osc, gainNode };
 }
-
     noteToFreq(note) {
         const notes = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
         const name = note.slice(0, 2);
@@ -586,64 +609,68 @@ togglePlay() {
         document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));
         console.log("Tracker detenido y reseteado.");
     }
+playRow() {
+    if (!this.isPlaying) return;
 
-    playRow() {
-        if (!this.isPlaying) return;
+    // --- METRÓNOMO VISUAL --- (Mantenemos tu lógica igual)
+    if (this.currentRow % 4 === 0 && this.bpmInput) {
+        this.bpmInput.style.color = '#ffffff';
+        this.bpmInput.style.textShadow = '0 0 10px #ffffff';
+        setTimeout(() => {
+            if(this.bpmInput) {
+                this.bpmInput.style.color = '#22ff88';
+                this.bpmInput.style.textShadow = 'none';
+            }
+        }, 100);
+    }
 
-        // --- METRÓNOMO VISUAL ---
-        if (this.currentRow % 4 === 0 && this.bpmInput) {
-            this.bpmInput.style.color = '#ffffff';
-            this.bpmInput.style.textShadow = '0 0 10px #ffffff';
-            setTimeout(() => {
-                if(this.bpmInput) {
-                    this.bpmInput.style.color = '#22ff88';
-                    this.bpmInput.style.textShadow = 'none';
-                }
-            }, 100);
-        }
+    const anySolo = this.tracks.some(t => t.isSolo);
 
-        const anySolo = this.tracks.some(t => t.isSolo);
+    this.tracks.forEach(track => {
+        const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
+        const index = this.currentRow % track.patternData.length;
+        const rowData = track.patternData[index];
 
-        this.tracks.forEach(track => {
-            const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
-            const index = this.currentRow % track.patternData.length;
-            const rowData = track.patternData[index];
+        if (rowData.note === '===') {
+            track.stopAllVoices();
+        } 
+        else if (rowData && rowData.note !== '---') {
+            track.stopAllVoices(); 
 
-            if (rowData.note === '===') {
-                track.stopAllVoices();
-            } 
-            else if (rowData && rowData.note !== '---') {
-                track.stopAllVoices(); 
+            if (!shouldBeSilent) {
+                // --- CAMBIO AQUÍ: Extraemos el FX ---
+                const fxCommand = rowData.fx !== '---' ? rowData.fx : null;
 
-                if (!shouldBeSilent) {
-                    const voice = this.audioEngine.playNote(
-                        rowData.note, 
-                        rowData.inst, 
-                        rowData.vol, 
-                        track.trackGain, 
-                        track.waveType
-                    ); 
-                    if (voice) track.activeVoices.push(voice);
+                const voice = this.audioEngine.playNote(
+                    rowData.note, 
+                    rowData.inst, 
+                    rowData.vol, 
+                    track.trackGain, 
+                    track.waveType,
+                    fxCommand // <--- AÑADIMOS ESTE ARGUMENTO
+                ); 
+                
+                if (voice) track.activeVoices.push(voice);
 
-                    const rowElements = track.element.querySelectorAll('.tracker-row');
-                    if (rowElements[index]) {
-                        rowElements[index].classList.add('flash');
-                        setTimeout(() => {
-                            if (rowElements[index]) rowElements[index].classList.remove('flash');
-                        }, 100);
-                    }
+                const rowElements = track.element.querySelectorAll('.tracker-row');
+                if (rowElements[index]) {
+                    rowElements[index].classList.add('flash');
+                    setTimeout(() => {
+                        if (rowElements[index]) rowElements[index].classList.remove('flash');
+                    }, 100);
                 }
             }
-        });
+        }
+    });
 
-        this.updatePlayheadPosition();
-        
-        const maxLen = this.tracks.length > 0 
-            ? Math.max(...this.tracks.map(t => t.patternData.length)) 
-            : 64;
+    this.updatePlayheadPosition();
+    
+    const maxLen = this.tracks.length > 0 
+        ? Math.max(...this.tracks.map(t => t.patternData.length)) 
+        : 64;
 
-        this.currentRow = (this.currentRow + 1) % maxLen;
-    }
+    this.currentRow = (this.currentRow + 1) % maxLen;
+}
 allTracksStop() {
         const now = this.audioEngine.audioCtx.currentTime;
         this.tracks.forEach(track => {
