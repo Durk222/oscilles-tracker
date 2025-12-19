@@ -379,11 +379,18 @@ class Track {
         this.activeVoices = [];
     }
 
-    updateNoteCell(index, noteValue) {
+     updateNoteCell(index, noteValue) {
         this.patternData[index].note = noteValue;
         const noteInputs = this.element.querySelectorAll('.note-cell');
-        if (noteInputs[index]) noteInputs[index].value = noteValue;
-        this.midiVisualizer.draw(this.patternData);
+        const cell = noteInputs[index];
+    
+        if (cell) {
+        cell.value = noteValue;
+        // CORRECCIÓN: Guardamos el valor en un atributo de datos para que el CSS lo vea
+        cell.setAttribute('data-note', noteValue);
+        }
+    
+       this.midiVisualizer.draw(this.patternData);
     }
 
     updateVolCell(index, volValue) {
