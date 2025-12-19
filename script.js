@@ -139,101 +139,88 @@ class MidiVisualizer {
     }
 }
 
-// --- VISUALIZADOR DE AUDIO (LightningChart VERTICAL) ---
+// --- VISUALIZADOR DE AUDIO (CANVAS NATIVO - ESTILO AUDACITY) ---
 class AudioVisualizer {
     constructor(container, analyserNode, color) {
         this.container = container;
         this.analyser = analyserNode;
         this.color = color;
-        this.chart = null;
-        this.lineSeries = null;
+        
+        // Creamos el canvas dinámicamente
+        this.canvas = document.createElement('canvas');
+        this.canvas.className = 'wave-canvas';
+        this.container.appendChild(this.canvas);
+        this.ctx = this.canvas.getContext('2d', { alpha: false }); // alpha false para mejor performance
+
         this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        setTimeout(() => this.initChart(), 0);
+        
+        // Ajustar tamaño inicial y escuchar cambios
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        
+        this.animate();
     }
 
-initChart() {
-    const { lightningChart, AxisTickStrategies, Themes, ColorHEX, SolidLine, SolidFill } = lcjs;
-
-    this.chart = lightningChart().ChartXY({
-        container: this.container,
-        theme: Themes.darkGold,
-        disableAnimations: true
-    }).setTitle('').setPadding(0);
-
-    // EJE X: Amplitud (Izquierda a Derecha)
-    // Lo fijamos de -128 a 128 para que la onda no se salga ni se mueva el eje
-    this.chart.getDefaultAxisX()
-        .setTickStrategy(AxisTickStrategies.Empty)
-        .setInterval(-128, 128) 
-        .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
-
-    this.chart.getDefaultAxisX()
-    .setInterval(-128, 128)
-    .setScrollStrategy(undefined); // <--- AÑADE ESTO
-
-    this.chart.getDefaultAxisY()
-    .setInterval(0, 128)
-    .setScrollStrategy(undefined); // <--- AÑADE ESTO
-
-    // EJE Y: El cuerpo de la onda (Arriba a Abajo)
-    // 0 a 128 coincide con la cantidad de puntos que dibujamos (512 / 4 = 128)
-    this.chart.getDefaultAxisY()
-        .setTickStrategy(AxisTickStrategies.Empty)
-        .setInterval(0, 128)
-        .setStrokeStyle(empty => empty.setFillStyle(new SolidFill({color: ColorHEX('#00000000')})));
-
-    this.lineSeries = this.chart.addLineSeries();
-    
-    // Aplicar colores inmediatamente al crear
-    this.updateColorStyle(this.color);
-    this.setBackgroundColor(this.adjustColorBrightness(this.color, -80)); // Función de apoyo
-    
-    this.animate();
-}
-
-    updateColorStyle(hexColor) {
-        if (!this.lineSeries) return;
-        const { SolidLine, SolidFill, ColorHEX } = lcjs;
-        this.lineSeries.setStrokeStyle(new SolidLine({
-            thickness: 2,
-            fillStyle: new SolidFill({ color: ColorHEX(hexColor) })
-        }));
-    }
-
-    setBackgroundColor(hexColor) {
-        if (this.chart) {
-            const { SolidFill, ColorHEX } = lcjs;
-            this.chart.setBackgroundFillStyle(new SolidFill({ color: ColorHEX(hexColor) }));
-            this.chart.setSeriesBackgroundFillStyle(new SolidFill({ color: ColorHEX(hexColor) }));
-        }
+    resize() {
+        // Multiplicamos por el ratio de píxeles para que se vea nítido en pantallas 4K/Retina
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = this.container.clientWidth * dpr;
+        this.canvas.height = this.container.clientHeight * dpr;
+        this.ctx.scale(dpr, dpr);
     }
 
     setColor(newColor) {
         this.color = newColor;
-        this.updateColorStyle(newColor);
-    }
-
-    adjustColorBrightness(hex, percent) {
-    let r = parseInt(hex.substring(1,3),16), g = parseInt(hex.substring(3,5),16), b = parseInt(hex.substring(5,7),16);
-    r = Math.max(0, Math.min(255, r + percent));
-    g = Math.max(0, Math.min(255, g + percent));
-    b = Math.max(0, Math.min(255, b + percent));
-    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
 
     animate() {
-        if (!this.analyser || !this.lineSeries) {
-            requestAnimationFrame(() => this.animate());
-            return;
-        }
-        this.analyser.getByteTimeDomainData(this.dataArray);
-        const points = [];
-        for (let i = 0; i < this.dataArray.length; i += 4) { 
-            const amplitude = this.dataArray[i] - 128;
-            points.push({ x: amplitude, y: i / 4 }); 
-        }
-        this.lineSeries.clear().add(points);
+        if (!this.analyser) return;
+
         requestAnimationFrame(() => this.animate());
+
+        const width = this.canvas.width / (window.devicePixelRatio || 1);
+        const height = this.canvas.height / (window.devicePixelRatio || 1);
+
+        // Obtener datos de la onda (Time Domain)
+        this.analyser.getByteTimeDomainData(this.dataArray);
+
+        // Fondo: Usamos el color oscuro de la pista para consistencia
+        this.ctx.fillStyle = '#0a0a0a'; 
+        this.ctx.fillRect(0, 0, width, height);
+
+        // Configuración de la línea
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = this.color;
+        this.ctx.beginPath();
+
+        // Dibujamos verticalmente para col.right
+        const sliceHeight = height / this.dataArray.length;
+        let y = 0;
+
+        for (let i = 0; i < this.dataArray.length; i++) {
+            // Normalizamos el valor (128 es el centro/silencio)
+            // v será un valor entre 0 y 1 aprox.
+            const v = this.dataArray[i] / 128.0;
+            // Calculamos la X (amplitud horizontal dentro de la columna vertical)
+            const x = (v * width) / 2;
+
+            if (i === 0) {
+                this.ctx.moveTo(x, y);
+            } else {
+                this.ctx.lineTo(x, y);
+            }
+
+            y += sliceHeight;
+        }
+
+        // Línea final centrada
+        this.ctx.lineTo(width / 2, height);
+        this.ctx.stroke();
+
+        // Efecto de brillo (Glow) opcional: 
+        // Si quieres que la onda "brille", podrías descomentar esto:
+        // this.ctx.shadowBlur = 5;
+        // this.ctx.shadowColor = this.color;
     }
 }
 
