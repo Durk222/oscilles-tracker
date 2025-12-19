@@ -11,7 +11,7 @@
 <body>
     <div class="app-container">
         <header class="rack-header">
-            <h1>OSCILLESTRACKER <span class="version">v0.2.1</span></h1>
+            <h1>OSCILLESTRACKER <span class="version">v0.3.2</span></h1>
             <div class="transport">
                 <button id="playBtn">PLAY</button>
                 <button id="stopBtn">STOP</button>
@@ -25,6 +25,30 @@
         <div class="rack-body" id="rackBody">
             </div>
     </div>
+    
+          <div class="main-toolbar">
+    <div class="toolbar-item">File
+        <div class="dropdown">
+            <span>New</span>
+            <span>Open...</span>
+            <span id="saveBtn">Save Project</span>
+        </div>
+    </div>
+    <div class="toolbar-item">Edit
+        <div class="dropdown">
+            <span>Undo</span>
+            <span>Redo</span>
+            <span>Clear Pattern</span>
+        </div>
+    </div>
+    <div class="toolbar-item">View
+        <div class="dropdown">
+            <span>Compact Mode</span>
+            <span>Fullscreen</span>
+        </div>
+    </div>
+    <div class="toolbar-item">Help</div>
+</div>
 
 <template id="track-template">
 <div class="track-module">
