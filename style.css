@@ -136,6 +136,7 @@ body {
 
 /* Fondos dinámicos para los lados - Ahora flexibles */
 .col-left { 
+    font-size: 9px;
     width: 65px; 
     background: var(--track-color-dark); 
     display: flex;
@@ -143,6 +144,7 @@ body {
 }
 
 .col-right { 
+    font-size: 9px;
     width: 65px; 
     background: var(--track-color-dark); 
     border-right: none;
@@ -169,6 +171,8 @@ body {
     font-weight: bold;
     letter-spacing: 1px;
     padding: 0; 
+    margin: 0;
+    justify-content: flex-start;
 }
 
 .tracker-header::before {
@@ -460,20 +464,39 @@ body {
 }
 
 /* RESALTADO DE COMPÁS (Cada 4 filas) */
-/* Usamos un color ligeramente más claro que el negro del fondo */
 .tracker-row.beat-highlight {
-    background-color: rgba(255, 255, 255, 0.05); /* Un gris muy suave y transparente */
+    background-color: rgba(var(--track-color-rgb), 0.08); 
 }
 
-/* RESALTADO DE INICIO DE COMPÁS (Cada 16 filas) */
-/* Para marcar el inicio de una frase musical, un poco más intenso */
 .tracker-row.measure-highlight {
-    background-color: rgba(255, 255, 255, 0.1); 
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background-color: rgba(var(--track-color-rgb), 0.15); 
+    border-top: 1px solid rgba(var(--track-color-rgb), 0.2);
+    border-bottom: 1px solid rgba(var(--track-color-rgb), 0.1);
 }
-
-/* Aseguramos que los números de fila también se vean más claros en estas filas */
 .tracker-row.beat-highlight .row-number,
 .tracker-row.measure-highlight .row-number {
-    color: #aaa; /* El número resalta más que el gris oscuro estándar */
+    color: #aaa;
 }
+
+.master-vu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin: 0 15px;
+}
+.vu-meter {
+    width: 100px;
+    height: 12px;
+    background: #111;
+    border: 1px solid #000;
+    position: relative;
+    overflow: hidden;
+}
+.vu-fill {
+    height: 100%;
+    width: 0%; /* Se controla con JS */
+    background: linear-gradient(to right, #22ff88 60%, #ffff00 80%, #ff4444 100%);
+    transition: width 0.1s;
+}
+.vu-label { font-size: 8px; color: #777; font-weight: bold; }
