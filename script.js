@@ -304,70 +304,58 @@ class Track {
         this.patternData.forEach((rowData, index) => this.createRowElement(rowsContainer, rowData, index));
     }
 
-    createRowElement(container, rowData, index) {
-        const row = document.createElement('div');
-        let rowClass = 'tracker-row';
-        if (index % 16 === 0) {
-            rowClass += ' measure-highlight';
-        } else if (index % 4 === 0) {
-            rowClass += ' beat-highlight';
+createRowElement(container, rowData, index) {
+    const row = document.createElement('div');
+    let rowClass = 'tracker-row';
+    if (index % 16 === 0) rowClass += ' measure-highlight';
+    else if (index % 4 === 0) rowClass += ' beat-highlight';
+    
+    row.className = rowClass;
+    const displayNote = rowData.note === '===' ? '. . .' : rowData.note;
+    row.innerHTML = `<div class="row-number">${index.toString().padStart(2,'0')}</div><input type="text" class="tracker-cell note-cell" value="${displayNote}" data-note="${rowData.note}" readonly><input type="text" class="tracker-cell inst-cell" value="${rowData.inst}" maxlength="2"><input type="text" class="tracker-cell vol-cell" value="${rowData.vol}" maxlength="2"><input type="text" class="tracker-cell fx-cell" value="${rowData.fx}" maxlength="3">`;
+    
+    container.appendChild(row);
+    const noteInput = row.querySelector('.note-cell');
+    noteInput.addEventListener('click', () => {
+        this.audioEngine.checkContext();
+        noteInput.focus();
+    });
+
+    noteInput.addEventListener('keydown', (e) => {
+        e.preventDefault();
+        const key = e.key;
+        if (key === 'Delete' || key === 'Backspace') {
+            this.updateNoteCell(index, '---');
+            this.updateVolCell(index, '--');
+        } else if (key === 'CapsLock') {
+            this.updateNoteCell(index, '===');
+            const nextRow = container.children[index + 1];
+            if (nextRow) nextRow.querySelector('.note-cell').focus();
+        } else if (KEYBOARD_MAP[key.toLowerCase()]) {
+            const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
+            const fullNote = noteInfo.note + noteInfo.oct;
+            this.updateNoteCell(index, fullNote);
+            this.updateVolCell(index, '64'); 
+            this.stopAllVoices();
+            const voice = this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
+            if (voice) this.activeVoices.push(voice);
+            const nextRow = container.children[index + 1];
+            if (nextRow) nextRow.querySelector('.note-cell').focus();
         }
-        const displayNote = rowData.note === '===' ? '. . .' : rowData.note;
-        row.innerHTML = `
-    <div class="row-number">${index.toString().padStart(2,'0')}</div>
-    <input type="text" class="tracker-cell note-cell" 
-    value="${displayNote}" 
-    data-note="${rowData.note}" readonly>
-    <input type="text" class="tracker-cell inst-cell" value="${rowData.inst}" maxlength="2">
-    <input type="text" class="tracker-cell vol-cell" value="${rowData.vol}" maxlength="2">
-    <input type="text" class="tracker-cell fx-cell" value="${rowData.fx}" maxlength="3">
-`;
-        container.appendChild(row);
+    });
 
-        const noteInput = row.querySelector('.note-cell');
-        noteInput.addEventListener('click', () => {
-            this.audioEngine.checkContext();
-            noteInput.focus();
-        });
-
-        noteInput.addEventListener('keydown', (e) => {
+    const volInput = row.querySelector('.vol-cell');
+    volInput.addEventListener('keydown', (e) => {
+        if (e.key >= '0' && e.key <= '9') {
             e.preventDefault();
-            const key = e.key;
-            if (key === 'Delete' || key === 'Backspace') {
-                this.updateNoteCell(index, '---');
-                this.updateVolCell(index, '--');
-            } else if (key === 'CapsLock') {
-                this.updateNoteCell(index, '===');
-                const nextRow = container.children[index + 1];
-                if (nextRow) nextRow.querySelector('.note-cell').focus();
-            } else if (KEYBOARD_MAP[key.toLowerCase()]) {
-                const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
-                const fullNote = noteInfo.note + noteInfo.oct;
-                this.updateNoteCell(index, fullNote);
-                this.updateVolCell(index, '64'); 
-                this.stopAllVoices();
-                const voice = this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
-                if (voice) this.activeVoices.push(voice);
-                const nextRow = container.children[index + 1];
-                if (nextRow) nextRow.querySelector('.note-cell').focus();
-            }
-        });
-
-        const volInput = row.querySelector('.vol-cell');
-        volInput.addEventListener('keydown', (e) => {
-            if (e.key >= '0' && e.key <= '9') {
-                e.preventDefault();
-                const volMap = {
-                    '1': '0A', '2': '14', '3': '1E', '4': '28', '5': '32', 
-                    '6': '3C', '7': '46', '8': '50', '9': '5A', '0': '64'
-                };
-                const newVol = volMap[e.key];
-                this.updateVolCell(index, newVol);
-                const nextRow = container.children[index + 1];
-                if (nextRow) nextRow.querySelector('.vol-cell').focus();
-            }
-        });
-    }
+            const volMap = {'1':'0A','2':'14','3':'1E','4':'28','5':'32','6':'3C','7':'46','8':'50','9':'5A','0':'64'};
+            const newVol = volMap[e.key];
+            this.updateVolCell(index, newVol);
+            const nextRow = container.children[index + 1];
+            if (nextRow) nextRow.querySelector('.vol-cell').focus();
+        }
+    });
+}
 
 stopAllVoices() {
     const releaseTime = 0.1; 
