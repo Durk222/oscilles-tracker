@@ -21,10 +21,7 @@ const KEYBOARD_MAP = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (typeof lcjs === 'undefined') {
-        alert('Error: LightningChart JS no cargó.');
-        return;
-    }
+
     const app = new AppController();
     app.init();
 });
@@ -141,86 +138,65 @@ class MidiVisualizer {
 
 // --- VISUALIZADOR DE AUDIO (CANVAS NATIVO - ESTILO AUDACITY) ---
 class AudioVisualizer {
-    constructor(container, analyserNode, color) {
-        this.container = container;
+    constructor(containerId, analyserNode, color) {
+        // CORRECCIÓN: Buscamos el elemento por ID para evitar el error appendChild
+        this.container = document.getElementById(containerId);
         this.analyser = analyserNode;
         this.color = color;
+        this.bgColor = '#0a0a0a'; 
         
-        // Creamos el canvas dinámicamente
+        if (!this.container) return;
+
         this.canvas = document.createElement('canvas');
         this.canvas.className = 'wave-canvas';
         this.container.appendChild(this.canvas);
-        this.ctx = this.canvas.getContext('2d', { alpha: false }); // alpha false para mejor performance
+        this.ctx = this.canvas.getContext('2d', { alpha: false });
 
         this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        
-        // Ajustar tamaño inicial y escuchar cambios
         this.resize();
         window.addEventListener('resize', () => this.resize());
-        
         this.animate();
     }
 
     resize() {
-        // Multiplicamos por el ratio de píxeles para que se vea nítido en pantallas 4K/Retina
+        if (!this.container) return;
         const dpr = window.devicePixelRatio || 1;
         this.canvas.width = this.container.clientWidth * dpr;
         this.canvas.height = this.container.clientHeight * dpr;
         this.ctx.scale(dpr, dpr);
     }
 
-    setColor(newColor) {
-        this.color = newColor;
-    }
+    // Métodos para actualizar visuales en tiempo real
+    setColor(newColor) { this.color = newColor; }
+    setBackgroundColor(hexColor) { this.bgColor = hexColor; }
 
     animate() {
         if (!this.analyser) return;
-
         requestAnimationFrame(() => this.animate());
 
         const width = this.canvas.width / (window.devicePixelRatio || 1);
         const height = this.canvas.height / (window.devicePixelRatio || 1);
 
-        // Obtener datos de la onda (Time Domain)
         this.analyser.getByteTimeDomainData(this.dataArray);
 
-        // Fondo: Usamos el color oscuro de la pista para consistencia
-        this.ctx.fillStyle = '#0a0a0a'; 
+        this.ctx.fillStyle = this.bgColor; 
         this.ctx.fillRect(0, 0, width, height);
 
-        // Configuración de la línea
         this.ctx.lineWidth = 2;
         this.ctx.strokeStyle = this.color;
         this.ctx.beginPath();
 
-        // Dibujamos verticalmente para col.right
         const sliceHeight = height / this.dataArray.length;
         let y = 0;
 
         for (let i = 0; i < this.dataArray.length; i++) {
-            // Normalizamos el valor (128 es el centro/silencio)
-            // v será un valor entre 0 y 1 aprox.
             const v = this.dataArray[i] / 128.0;
-            // Calculamos la X (amplitud horizontal dentro de la columna vertical)
             const x = (v * width) / 2;
-
-            if (i === 0) {
-                this.ctx.moveTo(x, y);
-            } else {
-                this.ctx.lineTo(x, y);
-            }
-
+            if (i === 0) this.ctx.moveTo(x, y);
+            else this.ctx.lineTo(x, y);
             y += sliceHeight;
         }
-
-        // Línea final centrada
-        this.ctx.lineTo(width / 2, height);
         this.ctx.stroke();
-
-        // Efecto de brillo (Glow) opcional: 
-        // Si quieres que la onda "brille", podrías descomentar esto:
-        // this.ctx.shadowBlur = 5;
-        // this.ctx.shadowColor = this.color;
     }
 }
 
@@ -242,66 +218,65 @@ class Track {
         this.isSolo = false;
     }
 
-    render(container) {
-        const template = document.getElementById('track-template');
-        const clone = template.content.cloneNode(true);
-        this.element = clone.querySelector('.track-module');
-        container.appendChild(this.element);
+render(container) {
+    const template = document.getElementById('track-template');
+    const clone = template.content.cloneNode(true);
+    this.element = clone.querySelector('.track-module');
+    container.appendChild(this.element);
 
-        const muteBtn = this.element.querySelector('.mute-btn');
-        const soloBtn = this.element.querySelector('.solo-btn');
+    const muteBtn = this.element.querySelector('.mute-btn');
+    const soloBtn = this.element.querySelector('.solo-btn');
 
-        // SELECTOR DE ONDA
-        const waveSelect = this.element.querySelector('.wave-type-select');
-        if (waveSelect) {
-            this.waveType = waveSelect.value; // Lee el valor inicial del HTML
-            waveSelect.addEventListener('change', (e) => {
-                this.waveType = e.target.value; // Cambia a SAW, SQR, TRI o SIN
-            });
-        }
-    //  BOTONES MUTE Y SOLO
-    muteBtn.addEventListener('click', () => {
-    this.isMuted = !this.isMuted;
-    // En lugar de solo togglear la clase del botón, 
-    // llamamos a la app para que actualice toda la lógica visual
-    this.app.updateVisualStates(); 
-    });
-
-        soloBtn.addEventListener('click', () => {
-        this.app.toggleSolo(this);
-        });
-
-        this.initColorPicker();
-        this.initGrid();
-
-     // LÓGICA PARA EL BOTÓN DE FILAS
-    const addRowBtn = this.element.querySelector('.add-row-btn');
-    if (addRowBtn) {
-        addRowBtn.addEventListener('click', () => {
-            this.addRow(); // Ejecuta la función que añade una fila de datos
+    // SELECTOR DE ONDA
+    const waveSelect = this.element.querySelector('.wave-type-select');
+    if (waveSelect) {
+        this.waveType = waveSelect.value;
+        waveSelect.addEventListener('change', (e) => {
+            this.waveType = e.target.value;
         });
     }
-// LÓGICA PARA EL BOTÓN DE ELIMINAR FILA
-const deleteBtn = this.element.querySelector('.delete-track-btn');
-if (deleteBtn) {
-    deleteBtn.addEventListener('click', () => {
-        this.app.removeTrack(this); 
+
+    // BOTONES MUTE Y SOLO
+    muteBtn.addEventListener('click', () => {
+        this.isMuted = !this.isMuted;
+        this.app.updateVisualStates(); 
     });
-}
-        
+
+    soloBtn.addEventListener('click', () => {
+        this.app.toggleSolo(this);
+    });
+
+    this.initColorPicker();
+    this.initGrid();
+
+    // --- NUEVAS LÓGICAS DE BOTONES ---
+    const addRowBtn = this.element.querySelector('.add-row-btn');
+    if (addRowBtn) {
+        addRowBtn.addEventListener('click', () => this.addRow());
+    }
+
+    const deleteBtn = this.element.querySelector('.delete-track-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => this.app.removeTrack(this));
+    }
+
+    // --- VISUALIZADORES (CANVAS NATIVO) ---
     const midiCanvas = this.element.querySelector('.midi-canvas');
     this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
 
+    // AudioVisualizer
     const waveContainer = this.element.querySelector('.wave-chart-container');
-    waveContainer.id = `chart-container-${this.id}`; 
-    this.audioVisualizer = new AudioVisualizer(waveContainer.id, this.analyser, this.color);
+    const containerId = `chart-container-${this.id}-${Date.now()}`; 
+    waveContainer.id = containerId; 
     
-    // USAMOS UN PEQUEÑO TIMEOUT:
-    // Esto asegura que LightningChart ya exista antes de pedirle que cambie de negro a color
+    // Invocamos la clase corregida
+    this.audioVisualizer = new AudioVisualizer(containerId, this.analyser, this.color);
+
+    // Sincronización inicial de colores
     setTimeout(() => {
         this.updateColor(this.color);
     }, 50);
-    }
+}
 
     initColorPicker() {
         const picker = this.element.querySelector('.track-color-picker');
@@ -528,10 +503,6 @@ document.querySelectorAll('.menu-item span').forEach(span => {
     if (!confirm(`¿Borrar ${trackInstance.element.querySelector('.track-name').textContent}?`)) return;
 
     this.tracks = this.tracks.filter(t => t !== trackInstance);
-
-    if (trackInstance.audioVisualizer && trackInstance.audioVisualizer.chart) {
-        trackInstance.audioVisualizer.chart.dispose();
-    }
         
     trackInstance.element.remove();
     
