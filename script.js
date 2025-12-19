@@ -344,6 +344,16 @@ if (deleteBtn) {
 
     createRowElement(container, rowData, index) {
         const row = document.createElement('div');
+        // --- NUEVA LÓGICA DE CLASES PARA COMPÁS ---
+        let rowClass = 'tracker-row';
+        if (index % 16 === 0) {
+        rowClass += ' measure-highlight'; // Cada 16 filas (Compás completo)
+          } else if (index % 4 === 0) {
+            rowClass += ' beat-highlight';    // Cada 4 filas (Pulso/Beat)
+    }
+    
+    row.className = rowClass;
+    // ------------------------------------------
         row.className = `tracker-row ${index % 4 === 0 ? 'highlight' : ''}`;
         row.innerHTML = `
             <div class="row-number">${index.toString().padStart(2,'0')}</div>
