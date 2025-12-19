@@ -60,21 +60,18 @@ class AudioEngine {
         osc.type = waveType; 
         osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
 
-
-        let volVal = 0.5;
-        if (volumeHex && volumeHex !== '--') {
-        volVal = parseInt(volumeHex, 16) / 100; 
-        }
-        
-    // Mantenemos el volumen constante (Sustain infinito)
-    gainNode.gain.setValueAtTime(volVal, this.audioCtx.currentTime);
+    let volVal = 0.5;
+    if (volumeHex && volumeHex !== '--') {
+        volVal = parseInt(volumeHex, 16) / 127; 
+    }
+    
+    gainNode.gain.setValueAtTime(0, this.audioCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volVal, this.audioCtx.currentTime + 0.005);
 
     osc.connect(gainNode);
     gainNode.connect(trackGainNode);
 
     osc.start();
-    
-    // IMPORTANTE: Devolvemos los nodos para que Track.stopAllVoices() pueda usarlos
     return { osc, gainNode };
     }
 
