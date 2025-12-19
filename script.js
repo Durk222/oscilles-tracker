@@ -439,6 +439,7 @@ class AppController {
         this.currentRow = 0;
         this.bpm = 130;
         this.intervalId = null;
+        this.bpmInput = null;
     }
 
     init() {
@@ -446,17 +447,45 @@ class AppController {
             this.audioEngine.checkContext();
             this.togglePlay();
         });
+        
         document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         
-        // --- AÑADE ESTO ---
+        // 2. Configurar el Input de BPM (Fuera de los botones de play)
+        this.bpmInput = document.getElementById('bpmInput');
+        if (this.bpmInput) {
+        // Sincronizar valor inicial
+        this.bpmInput.value = this.bpm; 
+        
+         this.bpmInput.addEventListener('change', (e) => {
+            this.bpm = parseFloat(e.target.value);
+            console.log("Nuevo BPM:", this.bpm);
+            
+            // Si está sonando, reiniciamos el ritmo inmediatamente
+            if (this.isPlaying) {
+                this.pauseInterval();
+                this.startInterval();
+            }
+        });
+    }
+        // Botón Añadir Pista
        const addTrackBtn = document.getElementById('addTrackBtn'); 
        if (addTrackBtn) {
-        addTrackBtn.addEventListener('click', () => this.addTrack());
+       addTrackBtn.addEventListener('click', () => this.addTrack());
          }
-       // ------------------
+        // Crea la primera pista por defecto
         this.addTrack();
     }
 
+                                                            
+    startInterval() {
+    const msPerRow = (60000 / this.bpm) / 4; 
+    this.intervalId = setInterval(() => this.playRow(), msPerRow);
+    }
+
+    pauseInterval() {
+    if (this.intervalId) clearInterval(this.intervalId);
+    }
+        
     addTrack() {
     // Genera un color aleatorio simple o usa una lista
     const colors = ['#ff9900', '#00ccff', '#ff0055', '#22ff88', '#aa00ff', '#ffff00'];
@@ -492,8 +521,7 @@ class AppController {
     play() {
         this.isPlaying = true;
         document.getElementById('playBtn').textContent = 'PAUSE';
-        const msPerRow = (60000 / this.bpm) / 4; 
-        this.intervalId = setInterval(() => this.playRow(), msPerRow);
+        this.startInterval();
     }
 
     toggleSolo(trackToSolo) {
@@ -513,7 +541,7 @@ class AppController {
     stop() {
         this.isPlaying = false;
         document.getElementById('playBtn').textContent = 'PLAY';
-        clearInterval(this.intervalId);
+        this.pauseInterval();
         
         //LIMPIEZA EN EL SCROLL
         this.currentRow = 0;
@@ -522,6 +550,19 @@ class AppController {
     }
 
 playRow() {
+    // --- METRÓNOMO VISUAL ---
+    if (this.currentRow % 4 === 0 && this.bpmInput) {
+        this.bpmInput.style.color = '#ffffff'; // Color de destello
+        this.bpmInput.style.textShadow = '0 0 10px #ffffff'; // Opcional: un pequeño brillo
+        
+        setTimeout(() => {
+            if(this.bpmInput) {
+                this.bpmInput.style.color = '#22ff88'; // Vuelve al color original
+                this.bpmInput.style.textShadow = 'none';
+            }
+        }, 100);
+    }
+    // --- LÓGICA DE AUDIO ---
     const anySolo = this.tracks.some(t => t.isSolo);
 
     this.tracks.forEach(track => {
@@ -546,21 +587,17 @@ playRow() {
                 rowData.inst, 
                 rowData.vol, 
                 track.trackGain, 
-                track.waveType // Asegúrate de haber añadido track.waveType en la clase Track
+                track.waveType,
             );
         }
     });
 
-    // 1. Actualizamos la posición visual con el valor actual
     this.updatePlayheadPosition();
     
-    // 2. Calculamos el siguiente paso
-    // Buscamos la longitud máxima para saber cuándo resetear el ciclo global
     const maxLen = this.tracks.length > 0 
         ? Math.max(...this.tracks.map(t => t.patternData.length)) 
         : 64;
 
-    // 3. Incrementamos una sola vez usando el módulo para que nunca crezca al infinito
     this.currentRow = (this.currentRow + 1) % maxLen;
 }
 updatePlayheadPosition() {
@@ -574,5 +611,5 @@ updatePlayheadPosition() {
                 rowsContainer.style.transform = `translateY(-${offset}px)`;
             }
         });
-    } // Cierra updatePlayheadPosition
-} // Cierra AppController
+    } 
+}
