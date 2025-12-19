@@ -476,22 +476,26 @@ body {
     transition: width 0.1s; 
 } 
 .vu-label { font-size: 8px; color: #777; font-weight: bold; }
-
-/* Estilo para el bloque de corte (Note-Off) */
+/* Note-off estilo Tracker Clásico */
 .note-cell[data-note="==="] {
-    background-color: var(--track-color) !important;
-    color: transparent !important;
+    background-color: transparent !important; 
+    color: var(--track-color) !important;     
+    border: 1px solid var(--track-color) !important; 
+    border-radius: 0 !important;          
+    box-shadow: none !important;       
+    filter: brightness(0.8);
+    text-align: center;
+    font-weight: bold;
+    letter-spacing: 2px;
     cursor: default;
-    border-radius: 2px; 
-    margin: 2px 4px;    
-    height: 10px; 
-    filter: brightness(0.6);
-    box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
-    transition: all 0.1s ease;
+    outline: none;
 }
 
-/* Cuando pasas el foco, que brille un poco */
+.note-cell[data-note="==="] {
+    content: ". . ."; 
+}
+
 .note-cell[data-note="==="]:focus {
-    filter: brightness(1);
-    box-shadow: 0 0 8px var(--track-color);
+    background-color: rgba(var(--track-color-rgb), 0.1) !important;
+    filter: brightness(1.2);
 }
