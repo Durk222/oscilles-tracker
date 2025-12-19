@@ -226,6 +226,34 @@ class Track {
         this.element = clone.querySelector('.track-module');
         container.appendChild(this.element);
 
+const nameEl = this.element.querySelector('.track-name');
+if (nameEl) {
+    nameEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); 
+            nameEl.blur();    
+        }
+    });
+    nameEl.addEventListener('input', () => {
+        const max = 15;
+        if (nameEl.innerText.length > max) {
+            nameEl.innerText = nameEl.innerText.substring(0, max);
+
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(nameEl);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    });
+    nameEl.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text/plain').replace(/\n/g, "");
+        document.execCommand('insertText', false, text.substring(0, 15));
+    });
+}
+
         const muteBtn = this.element.querySelector('.mute-btn');
         const soloBtn = this.element.querySelector('.solo-btn');
 
