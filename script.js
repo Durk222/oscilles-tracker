@@ -354,7 +354,6 @@ if (nameEl) {
         rowsContainer.innerHTML = '';
         this.patternData.forEach((rowData, index) => this.createRowElement(rowsContainer, rowData, index));
     }
-
 createRowElement(container, rowData, index) {
     const row = document.createElement('div');
     let rowClass = 'tracker-row';
@@ -363,9 +362,18 @@ createRowElement(container, rowData, index) {
     
     row.className = rowClass;
     const displayNote = rowData.note === '===' ? '. . .' : rowData.note;
-    row.innerHTML = `<div class="row-number">${index.toString().padStart(2,'0')}</div><input type="text" class="tracker-cell note-cell" value="${displayNote}" data-note="${rowData.note}" readonly><input type="text" class="tracker-cell inst-cell" value="${rowData.inst}" maxlength="2"><input type="text" class="tracker-cell vol-cell" value="${rowData.vol}" maxlength="2"><input type="text" class="tracker-cell fx-cell" value="${rowData.fx}" maxlength="3">`;
+    
+    row.innerHTML = `
+        <div class="row-number">${index.toString().padStart(2,'0')}</div>
+        <input type="text" class="tracker-cell note-cell" value="${displayNote}" data-note="${rowData.note}" readonly>
+        <input type="text" class="tracker-cell inst-cell" value="${rowData.inst}" maxlength="2">
+        <input type="text" class="tracker-cell vol-cell" value="${rowData.vol}" maxlength="2">
+        <input type="text" class="tracker-cell fx-cell" value="${rowData.fx}" maxlength="3">
+    `;
     
     container.appendChild(row);
+
+    // --- LÓGICA DE NOTA ---
     const noteInput = row.querySelector('.note-cell');
     noteInput.addEventListener('click', () => {
         this.audioEngine.checkContext();
@@ -395,6 +403,13 @@ createRowElement(container, rowData, index) {
         }
     });
 
+    // --- LÓGICA DE INSTRUMENTO ---
+    const instInput = row.querySelector('.inst-cell');
+    instInput.addEventListener('input', (e) => {
+        this.patternData[index].inst = e.target.value.toUpperCase().padStart(2, '0').substring(0, 2);
+    });
+
+    // --- LÓGICA DE VOLUMEN ---
     const volInput = row.querySelector('.vol-cell');
     volInput.addEventListener('keydown', (e) => {
         if (e.key >= '0' && e.key <= '9') {
@@ -406,8 +421,30 @@ createRowElement(container, rowData, index) {
             if (nextRow) nextRow.querySelector('.vol-cell').focus();
         }
     });
-}
 
+    const fxInput = row.querySelector('.fx-cell');
+    fxInput.addEventListener('input', (e) => {
+        let val = e.target.value.toUpperCase();
+        if (val === '') {
+            this.updateFXCell(index, '---');
+        } else {
+            this.updateFXCell(index, val);
+        }
+    });
+
+    fxInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const nextRow = container.children[index + 1];
+            if (nextRow) nextRow.querySelector('.fx-cell').focus();
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (fxInput.value.length <= 1) {
+                this.updateFXCell(index, '---');
+            }
+        }
+    });
+}
 stopAllVoices() {
     const releaseTime = 0.1; 
     const now = this.audioEngine.audioCtx.currentTime;
@@ -443,7 +480,15 @@ stopAllVoices() {
         const volInputs = this.element.querySelectorAll('.vol-cell');
         if (volInputs[index]) volInputs[index].value = volValue;
     }
-
+    updateFXCell(index, fxValue) {
+    const finalValue = (fxValue === '---' || fxValue === '') ? '---' : fxValue.substring(0, 3).toUpperCase();
+    this.patternData[index].fx = finalValue;
+    
+    const fxInputs = this.element.querySelectorAll('.fx-cell');
+    if (fxInputs[index]) {
+        fxInputs[index].value = finalValue;
+    }
+}
     addRow() {
         const newData = { note: '---', inst: '--', vol: '--', fx: '---' };
         this.patternData.push(newData);
