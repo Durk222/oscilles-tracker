@@ -523,3 +523,8 @@ body {
     flex: 1;
     width: 0;
 }
+.tracker-cell:focus {
+    background-color: var(--track-color);
+    color: #000;
+    outline: none;
+}
