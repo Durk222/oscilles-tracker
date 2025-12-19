@@ -306,3 +306,29 @@ body {
     overflow: hidden;
     position: relative;
 }
+
+.bpm-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1a1a1a;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid #000;
+}
+
+.bpm-container label {
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+#bpmInput {
+    background: transparent;
+    border: none;
+    color: #22ff88; /* Color neón para resaltar */
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    width: 50px;
+    outline: none;
+}
