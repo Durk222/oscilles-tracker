@@ -300,3 +300,9 @@ body {
 .wave-type-select:hover {
     border-color: var(--track-color);
 }
+
+.tracker-grid-container {
+    height: 100%;
+    overflow: hidden; /* El scroll lo manejamos por JS con translateY */
+    position: relative;
+}
