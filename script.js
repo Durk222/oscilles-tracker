@@ -639,34 +639,58 @@ updatePlayheadPosition() {
 }
 toggleSolo(trackInstance) {
     trackInstance.isSolo = !trackInstance.isSolo;
-    
     if (trackInstance.isSolo) {
-        this.tracks.forEach(t => {
-            if (t !== trackInstance) t.isSolo = false;
-        });
+        this.tracks.forEach(t => { if (t !== trackInstance) t.isSolo = false; });
     }
     this.updateVisualStates();
 }
-
 updateVisualStates() {
     const anySolo = this.tracks.some(t => t.isSolo);
 
     this.tracks.forEach(track => {
-        const isMuted = track.isMuted;
         const isSilencedBySolo = anySolo && !track.isSolo;
-
-        if (isMuted || isSilencedBySolo) {
+        const isEffectivelyMuted = track.isMuted || isSilencedBySolo;
+        
+        // --- LÓGICA DE OSCURIDAD (DIMMING) ---
+        if (isEffectivelyMuted) {
+            track.element.style.opacity = "0.8";
+            track.element.style.filter = "grayscale(0.8) brightness(0.5)";
             track.element.classList.add('track-silenced');
         } else {
+            track.element.style.opacity = "1";
+            track.element.style.filter = "none";
             track.element.classList.remove('track-silenced');
         }
+
+        // --- LÓGICA DEL GLOW (BRILLO) ---
+        // Si la pista está activa, le devolvemos su resplandor de color
+        const trackColor = track.color;
+        if (!isEffectivelyMuted) {
+            track.element.style.boxShadow = `0 0 15px rgba(${this.hexToRgb(trackColor)}, 0.2)`;
+        } else {
+            track.element.style.boxShadow = "none";
+        }
+
+        // Actualizar colores de los botones Mute/Solo
         const muteBtn = track.element.querySelector('.mute-btn');
         const soloBtn = track.element.querySelector('.solo-btn');
         
-        if (muteBtn) muteBtn.style.background = track.isMuted ? '#f00' : '';
-        if (soloBtn) soloBtn.style.background = track.isSolo ? '#ff0' : '';
-        if (soloBtn) soloBtn.style.color = track.isSolo ? '#000' : '';
+        if (muteBtn) {
+            muteBtn.style.backgroundColor = track.isMuted ? "#ff4444" : "#444";
+            muteBtn.style.boxShadow = track.isMuted ? "0 0 10px #ff4444" : "none";
+        }
+        if (soloBtn) {
+            soloBtn.style.backgroundColor = track.isSolo ? "#ffcc00" : "#444";
+            soloBtn.style.color = track.isSolo ? "#000" : "#fff";
+            soloBtn.style.boxShadow = track.isSolo ? "0 0 10px #ffcc00" : "none";
+        }
     });
+}
+hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? 
+        `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` 
+        : "255, 255, 255";
 }
 exportProject() {
     const projectData = {
@@ -687,7 +711,6 @@ exportProject() {
     a.download = `project_v085_${Date.now()}.osc`;
     a.click();
 }
-
 importProject(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
