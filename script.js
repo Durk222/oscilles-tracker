@@ -264,8 +264,10 @@ class Track {
     //  BOTONES MUTE Y SOLO
     muteBtn.addEventListener('click', () => {
     this.isMuted = !this.isMuted;
-    muteBtn.classList.toggle('active', this.isMuted);
-         });
+    // En lugar de solo togglear la clase del botón, 
+    // llamamos a la app para que actualice toda la lógica visual
+    this.app.updateVisualStates(); 
+    });
 
         soloBtn.addEventListener('click', () => {
         this.app.toggleSolo(this);
@@ -524,19 +526,37 @@ class AppController {
         this.startInterval();
     }
 
-    toggleSolo(trackToSolo) {
+// Método nuevo para centralizar el efecto visual
+updateVisualStates() {
+    const anySolo = this.tracks.some(t => t.isSolo);
+
+    this.tracks.forEach(track => {
+        const isMutedBySolo = anySolo && !track.isSolo;
+        const shouldBeSilent = track.isMuted || isMutedBySolo;
+
+        // EFECTO VISUAL
+        track.element.classList.toggle('muted-effect', shouldBeSilent);
+        
+        // CONTROL DE AUDIO REAL (Opcional pero recomendado)
+        // Esto silencia cualquier cola de sonido (release) instantáneamente
+        if (track.trackGain) {
+            const gainValue = shouldBeSilent ? 0 : 1;
+            track.trackGain.gain.setTargetAtTime(gainValue, this.audioEngine.audioCtx.currentTime, 0.02);
+        }
+
+        // ACTUALIZAR BOTONES
+        const soloBtn = track.element.querySelector('.solo-btn');
+        const muteBtn = track.element.querySelector('.mute-btn');
+        if (soloBtn) soloBtn.classList.toggle('active', track.isSolo);
+        if (muteBtn) muteBtn.classList.toggle('active', track.isMuted);
+    });
+}
+
+// Actualiza toggleSolo para que use el nuevo método
+toggleSolo(trackToSolo) {
     trackToSolo.isSolo = !trackToSolo.isSolo;
-    
-    // Forzamos a que cada botón refleje EXACTAMENTE el estado isSolo de su pista
-    this.tracks.forEach(t => {
-        const btn = t.element.querySelector('.solo-btn');
-        if (t.isSolo) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-            }
-       });
-    }
+    this.updateVisualStates(); // Llamada inmediata
+}
 
     stop() {
         this.isPlaying = false;
