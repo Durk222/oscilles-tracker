@@ -104,6 +104,11 @@ class MidiVisualizer {
     setBackgroundColor(hexColor) { this.bgColor = hexColor; }
 
     draw(patternData) {
+    // AJUSTE: Sincronizar tamaño del buffer con el tamaño real de la pantalla
+    if (this.canvas.width !== this.canvas.clientWidth || this.canvas.height !== this.canvas.clientHeight) {
+        this.canvas.width = this.canvas.clientWidth;
+        this.canvas.height = this.canvas.clientHeight;
+    }
         this.ctx.fillStyle = this.bgColor; 
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
