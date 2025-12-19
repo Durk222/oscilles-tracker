@@ -330,11 +330,15 @@ body {
 
 .tracker-grid-container { 
     flex: 1; 
-    overflow: hidden; 
+    overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
     position: relative; 
     background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px); 
     background-size: 100% 15px; 
 } 
+.tracker-grid-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
 
 .bpm-container { 
     display: flex; 
