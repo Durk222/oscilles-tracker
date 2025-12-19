@@ -1,502 +1,193 @@
-/* VARIABLES GLOBALES Y COLORES BASE */
+/* OSCILLESTRACKER - PRO EDITION FINAL */
 :root {
-    --bg-dark: #121214;
+    --bg-dark: #0a0a0b;
     --rack-bg: #1e1e20;
-    --panel-bg: #2a2a2d;
+    --panel-bg: #262629;
     --text-main: #e0e0e0;
-    --text-dim: #777;
+    --text-dim: #666;
     --border: #38383b;
-    --grid-color: #333;
 }
+
+* { box-sizing: border-box; }
 
 body {
     background-color: var(--bg-dark);
     color: var(--text-main);
     font-family: 'Roboto Mono', monospace;
     margin: 0;
-    overflow: hidden; /* Evita scrolls raros del navegador */
+    overflow: hidden;
+    height: 100vh;
 }
 
-/* CONTENEDOR PRINCIPAL */
+/* --- ESTRUCTURA PRINCIPAL --- */
 .app-container {
     display: flex;
     flex-direction: column;
     height: 100vh;
 }
 
-/* BARRA SUPERIOR (TRANSPORT) */
 .rack-header {
-    background-color: var(--panel-bg);
+    background: #1a1a1c;
     border-bottom: 2px solid #000;
-    padding: 10px 20px;
+    padding: 0 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    z-index: 20;
-    height: 50px;
+    height: 55px;
+    flex-shrink: 0;
 }
 
-.rack-header h1 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; }
-.version { color: var(--text-dim); font-size: 0.8rem; }
-
-.transport button {
-    background: #444; border: 1px solid #000; color: #fff;
-    padding: 5px 15px; cursor: pointer; font-family: inherit;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
-    margin-right: 5px;
-    transition: background 0.2s;
-}
-.transport button:active { background: #333; transform: translateY(1px); }
-
-.rack-body {
-    flex: 1;
-    padding: 0;
-    background-color: #000;
-
-    /* --- FLUJO DE PISTAS --- */
-    display: flex;             
-    flex-direction: row;     
-    align-items: stretch;  /* Esto obliga a los hijos a medir lo mismo que el padre */
-    gap: 1px;             
-    
-    /* Control de Scroll y Dimensiones */
-    overflow-x: auto;          /* Scroll horizontal si hay muchas pistas */
-    overflow-y: hidden;       
-    height: calc(100vh - 75px); /* Ocupa todo el alto restante */
-}
-
-.col-mid { 
-    flex: 1; 
-    background: #0a0a0a; 
-    overflow: hidden; 
-    position: relative;
+/* --- TOOLBAR (Z-INDEX CRÍTICO) --- */
+.main-toolbar {
+    background: #111;
     display: flex;
-    flex-direction: column;
+    gap: 15px;
+    padding: 0 20px;
+    font-size: 11px;
+    border-bottom: 1px solid #333;
+    height: 28px;
+    align-items: center;
+    position: relative;
+    z-index: 9999;
 }
 
-/* IMPORTANTE: Asegúrate de que los módulos de pista no se encojan */
-.track-module {
-    flex-shrink: 0;            /* Evita que la pista se deforme al haber muchas */
-    min-width: 250px;          /* Ajusta este ancho según tu diseño de tracker */
+.toolbar-item { cursor: pointer; position: relative; color: #888; }
+.toolbar-item:hover { color: #fff; }
+
+.dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #2a2a2d;
+    border: 1px solid #000;
+    min-width: 180px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
 }
 
-/* EL MÓDULO DE LA PISTA (TRACK) */
+.toolbar-item:hover .dropdown { display: block; }
+.dropdown span {
+    display: block;
+    padding: 10px 15px;
+    border-bottom: 1px solid #333;
+}
+.dropdown span:hover { background: #444; color: #22ff88; }
+
+/* --- CONTENEDOR DE PISTAS --- */
+#rackBody {
+    flex: 1;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: #000;
+    padding: 10px;
+    gap: 5px;
+    align-items: stretch;
+}
+
+/* --- MÓDULO DE PISTA --- */
 .track-module {
     --track-color: #ff9900;
-    --track-color-dark: #1a1000;
     --track-color-rgb: 255, 153, 0;
-    background-color: var(--panel-bg);
-    border: none;
-    border-radius: 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    height: 100%;
+    background: var(--panel-bg);
     width: 380px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    border-top: 3px solid var(--track-color);
+    border-top: 4px solid var(--track-color);
+    transition: opacity 0.2s;
 }
 
 .track-header {
-    background: linear-gradient(to bottom, #3a3a3e, #2a2a2d);
-    padding: 6px 10px;
+    padding: 8px;
+    background: rgba(0,0,0,0.2);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px; /* Espaciado entre elementos */
+    font-size: 12px;
 }
 
-.track-controls {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.track-name { font-weight: bold; color: var(--track-color); cursor: text; }
-
-.track-color-picker {
-    width: 30px; height: 20px; border: none; padding: 0; cursor: pointer; background: none;
-}
-
-/* INTERFAZ DEL TRACKER (3 COLUMNAS) */
+/* --- EL TRACKER (GRILLA) --- */
 .track-interface {
-    display: flex;
     flex: 1;
-    position: relative;
-    background: #000;
+    display: flex;
     overflow: hidden;
+    background: #000;
+    position: relative;
 }
 
-.column { 
-    height: 100%; 
-    position: relative; 
-    border-right: 1px solid var(--border); 
-}
+.column { position: relative; height: 100%; overflow: hidden; border-right: 1px solid #111; }
+.col-left, .col-right { width: 60px; background: rgba(var(--track-color-rgb), 0.05); }
+.col-mid { flex: 1; }
 
-/* Fondos dinámicos para los lados - Ahora flexibles */
-.col-left { 
-    font-size: 9px;
-    width: 65px; 
-    background: var(--track-color-dark); 
-    display: flex;
-    flex-direction: column;
-}
-
-.col-right { 
-    font-size: 9px;
-    width: 65px; 
-    background: var(--track-color-dark); 
-    border-right: none;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Forzar que el canvas y el visualizador ocupen todo el alto */
-.midi-canvas, .wave-chart-container {
-    flex: 1; /* Ocupa todo el espacio vertical disponible */
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-}
-
-.tracker-header {
-    background: #222; 
-    font-size: 9px; 
-    color: var(--track-color);
-    border-bottom: 1px solid #333;
-    display: flex; 
-    align-items: center;
-    height: 20px; 
-    font-weight: bold;
-    letter-spacing: 1px;
-    padding: 0; 
-    margin: 0;
-    justify-content: flex-start;
-}
-
-.tracker-header::before {
-    content: "";
-    width: 25px; 
+.tracker-grid-container {
     height: 100%;
-    border-right: 1px solid #333;
-    display: block;
-}
-
-.tracker-header span, .tracker-header div {
-    flex: 1;
-    text-align: center;
+    position: relative;
 }
 
 .tracker-rows {
-    position: relative;
+    position: absolute;
+    width: 100%;
+    will-change: transform;
+    transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1);
 }
 
 .tracker-row {
     height: 15px;
     display: flex;
-    align-items: center;
-    box-sizing: border-box; /* Importante para que el padding/border no sume altura */
+    border-bottom: 1px solid #111;
 }
 
-.tracker-row.highlight { background: rgba(255,255,255,0.03); }
+.row-number { width: 30px; font-size: 9px; color: #444; text-align: center; line-height: 15px; }
 
-/* Número de fila al estilo FT2 */
-.row-number {
-    width: 25px;
-    color: #444;
-    font-size: 9px;
-    text-align: center;
-    border-right: 1px solid #222;
-}
-
-/* CELDAS DE ENTRADA */
 .tracker-cell {
-    width: 25%;
-    text-align: center;
-    background: transparent;
-    border: none;
-    color: #888;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 11px;
-    outline: none;
-    cursor: default;
-}
-
-/* Estilo especial para cuando pulsas una nota */
-.tracker-cell.note-cell {
-    color: var(--track-color);
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.tracker-cell.note-cell:focus, .tracker-cell.note-cell.editing {
-    background: #fff;
-    color: #000;
-}
-
-/* Brillo cuando el secuenciador pasa por la fila */
-.tracker-row.flash {
-    background-color: rgba(var(--track-color-rgb), 0.3) !important;
-}
-
-.playhead {
-    position: absolute;
-    top: 0; 
-    left: 0;
-    right: 0;
-    height: 15px;
-    background: rgba(var(--track-color-rgb), 0.2); 
-    border-top: 1px solid var(--track-color);
-    border-bottom: 1px solid var(--track-color);
-    
-    pointer-events: none;
-    z-index: 100;
-}
-
-/* PIE DE PISTA */
-.track-footer {
-    background: #2a2a2d; padding: 5px;
-    border-top: 1px solid #000; text-align: center;
-}
-
-.add-row-btn {
-    background: #444; border: 1px solid #000; color: #fff;
-    padding: 2px 10px; cursor: pointer; font-family: inherit; font-size: 10px;
-}
-
-/* CONTENEDOR DE LA ONDA */
-.wave-chart-container {
-    width: 100%;
-    height: 100%;
-}
-
-/* Esto hará que la celda donde estás escribiendo resalte más */
-.tracker-cell:focus {
-    background-color: rgba(255, 255, 255, 0.2);
-    outline: 1px solid var(--track-color);
-    color: #fff;
-}
-
-.delete-track-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-dim);
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    margin-left: 10px;
-    padding: 0 5px;
-    transition: color 0.2s;
-}
-
-/* BOTONES MUTE Y SOLO */
-.mute-btn, .solo-btn {
-    width: 28px;
-    height: 20px;
-    font-size: 9px;
-    font-weight: bold;
-    border-radius: 2px;
-    cursor: pointer;
-    background: #333;
-    color: #888;
-    border: 1px solid #1a1a1a;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-    transition: all 0.1s;
-    text-transform: uppercase;
-}
-
-/* Estado Mute Activo (Rojo Brillante) */
-.mute-btn.active { 
-    background: #ff4444; 
-    color: #fff; 
-    box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
-    border-color: #900;
-}
-
-/* Estado Solo Activo (Amarillo Oro) */
-.solo-btn.active { 
-    background: #ffea00; 
-    color: #000; 
-    box-shadow: 0 0 8px rgba(255, 234, 0, 0.5);
-    border-color: #880;
-}
-
-.delete-track-btn:hover {
-    color: #ff4444;
-    text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
-}
-
-/* ESTILO PARA EL SELECTOR DE ONDA */
-.wave-type-select {
-    background: #1a1a1a;
-    color: var(--track-color);
-    border: 1px solid #000;
-    font-size: 10px;
-    font-family: 'Roboto Mono', monospace;
-    padding: 1px 4px;
-    border-radius: 2px;
-    cursor: pointer;
-    outline: none;
-}
-
-.wave-type-select:hover {
-    border-color: var(--track-color);
-}
-
-.tracker-grid-container {
     flex: 1;
-    overflow: hidden;
-    position: relative;
-    background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
-    background-size: 100% 15px; /* Ayuda visual de filas */
-}
-
-.bpm-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #1a1a1a;
-    padding: 2px 8px;
-    border-radius: 3px;
-    border: 1px solid #000;
-}
-
-.bpm-container label {
+    background: transparent;
+    border: none;
+    color: #777;
+    font-family: inherit;
     font-size: 10px;
-    color: var(--text-dim);
+    text-align: center;
+    outline: none;
 }
+
+.note-cell { color: var(--track-color); font-weight: bold; }
+.note-cell:focus { background: #fff !important; color: #000 !important; }
+
+/* --- VISUALIZACIÓN --- */
+.midi-canvas, .wave-chart-container {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* --- ESTADOS Y ANIMACIONES --- */
+.tracker-row.flash {
+    background: rgba(var(--track-color-rgb), 0.4) !important;
+}
+
+.measure-highlight { background: rgba(255,255,255,0.08); }
+.beat-highlight { background: rgba(255,255,255,0.03); }
+
+.muted-effect { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
+.muted-effect .track-controls { pointer-events: auto; }
+
+/* --- INTERFAZ DE AUDIO --- */
+.master-vu-container { width: 120px; }
+.vu-meter { height: 8px; background: #000; border: 1px solid #333; position: relative; }
+#masterVuFill { 
+    height: 100%; 
+    background: linear-gradient(to right, #22ff88, #ffff00, #ff4444); 
+    width: 0%; 
+    transition: width 0.1s ease;
+}
+
+.transport button {
+    background: #333; border: 1px solid #000; color: #fff;
+    padding: 5px 15px; cursor: pointer; font-family: inherit;
+}
+.transport button:hover { background: #444; }
 
 #bpmInput {
-    background: transparent;
-    border: none;
-    color: #22ff88; /* Color neón para resaltar */
-    font-family: 'Roboto Mono', monospace;
-    font-size: 14px;
-    font-weight: bold;
-    width: 50px;
-    outline: none;
+    background: #000; border: 1px solid #444; color: #22ff88;
+    width: 50px; text-align: center; font-weight: bold;
 }
-
-/* --- TOOLBAR Y DROPDOWNS --- */
-.main-toolbar {
-    background: #1a1a1a;
-    display: flex;
-    gap: 5px;
-    padding: 0 15px;
-    font-size: 11px;
-    border-bottom: 1px solid #333;
-    color: #888;
-    height: 25px;
-    align-items: center;
-    z-index: 1000; /* Asegura que los menús floten sobre las pistas */
-}
-.toolbar-item { 
-    cursor: pointer; 
-    position: relative; 
-    padding: 4px 10px;
-}
-
-.toolbar-item:hover { 
-    background: #333;
-    color: #fff; 
-}
-
-/* El contenedor del menú */
-.dropdown {
-    display: none; /* Oculto por defecto */
-    position: absolute;
-    top: 100%; /* Justo debajo del item */
-    left: 0;
-    background: #2a2a2d;
-    border: 1px solid #000;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    min-width: 160px;
-    z-index: 9999;
-}
-
-/* Mostrar cuando el padre tiene el mouse encima */
-.toolbar-item:hover .dropdown {
-    display: block;
-}
-
-/* Estilo para cada opción dentro del menú */
-.dropdown span {
-    display: block; /* Obliga a que cada opción use una línea nueva */
-    padding: 8px 15px;
-    color: #ccc;
-    text-align: left;
-    border-bottom: 1px solid #38383b;
-}
-
-.dropdown span:last-child {
-    border-bottom: none;
-}
-
-.dropdown span:hover {
-    background: #444;
-    color: #22ff88; /* Color neón que usamos en el BPM */
-}
-/* --- EFECTO DE APAGADO (MUTE / SOLO) --- */
-/* Cuando el track está silenciado por Mute o por el Solo de otro */
-.track-module.muted-effect {
-    opacity: 0.4;
-    filter: grayscale(0.8) brightness(0.5);
-    pointer-events: none; /* Opcional: impide editar mientras está mudo */
-}
-
-/* Excepción: los botones de control siguen siendo clicables */
-.track-module.muted-effect .track-controls {
-    pointer-events: auto;
-}
-
-.track-module.muted-effect .wave-type-select,
-.track-module.muted-effect .track-name {
-    opacity: 0.6;
-}
-
-/* Permitir interacción con los botones aunque el track esté mudo */
-.track-module.muted-effect .mute-btn, 
-.track-module.muted-effect .solo-btn,
-.track-module.muted-effect .delete-track-btn {
-    pointer-events: auto;
-    filter: brightness(1.5); /* Resalta un poco los botones para poder "desmutear" */
-}
-
-/* RESALTADO DE COMPÁS (Cada 4 filas) */
-.tracker-row.beat-highlight {
-    background-color: rgba(var(--track-color-rgb), 0.08); 
-}
-
-.tracker-row.measure-highlight {
-    background-color: rgba(var(--track-color-rgb), 0.15); 
-    border-top: 1px solid rgba(var(--track-color-rgb), 0.2);
-    border-bottom: 1px solid rgba(var(--track-color-rgb), 0.1);
-}
-.tracker-row.beat-highlight .row-number,
-.tracker-row.measure-highlight .row-number {
-    color: #aaa;
-}
-
-.master-vu-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    margin: 0 15px;
-}
-.vu-meter {
-    width: 100px;
-    height: 12px;
-    background: #111;
-    border: 1px solid #000;
-    position: relative;
-    overflow: hidden;
-}
-.vu-fill {
-    height: 100%;
-    width: 0%; /* Se controla con JS */
-    background: linear-gradient(to right, #22ff88 60%, #ffff00 80%, #ff4444 100%);
-    transition: width 0.1s;
-}
-.vu-label { font-size: 8px; color: #777; font-weight: bold; }
