@@ -516,168 +516,112 @@ document.querySelectorAll('.menu-item span').forEach(span => {
     
     console.log(`Pista ${trackInstance.id} eliminada.`);
     }
-    
-    togglePlay() {
-    if (this.isPlaying) {
-        this.stop();
-    } else {
-        this.play();
-    }
-}
-playRow() {
-    if (!this.isPlaying) return;
-    const anySolo = this.tracks.some(t => t.isSolo);
-
-    this.tracks.forEach(track => {
-        const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
-        const index = this.currentRow % track.patternData.length;
-        const rowData = track.patternData[index];
-
-        if (rowData.note === '===') {
-            track.stopAllVoices();
-        } 
-        else if (rowData && rowData.note !== '---') {
-            track.stopAllVoices(); 
-
-            if (!shouldBeSilent) {
-                const voice = this.audioEngine.playNote(
-                    rowData.note, 
-                    rowData.inst, 
-                    rowData.vol, 
-                    track.trackGain, 
-                    track.waveType
-                ); 
-                if (voice) track.activeVoices.push(voice);
-                const rowElements = track.element.querySelectorAll('.tracker-row');
-                if (rowElements[index]) {
-                    rowElements[index].classList.add('flash');
-                    setTimeout(() => {
-                        if (rowElements[index]) rowElements[index].classList.remove('flash');
-                    }, 100);
-                }
-            }
+togglePlay() {
+        if (this.isPlaying) {
+            this.stop();
+        } else {
+            this.play();
         }
-    });
+    }
 
-    this.updatePlayheadPosition();
-    const maxLen = this.tracks.length > 0 
-        ? Math.max(...this.tracks.map(t => t.patternData.length)) 
-        : 64;
+    play() {
+        if (this.isPlaying) return; 
+        this.isPlaying = true;
+        const playBtn = document.getElementById('playBtn');
+        if (playBtn) playBtn.textContent = 'PAUSE';
+        this.updateVisualStates();
+        this.startInterval();
+    }
 
-    this.currentRow = (this.currentRow + 1) % maxLen;
-}
-stop() {
-    this.isPlaying = false;
-    document.getElementById('playBtn').textContent = 'PLAY';
-    
-    this.pauseInterval();
-    this.allTracksStop();
-    this.currentRow = 0;
-    this.updatePlayheadPosition();
-    
-    document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));    
-    console.log("Tracker detenido y reseteado a 0");
-}
-allTracksStop() {
-    const now = this.audioEngine.audioCtx.currentTime;
-    this.tracks.forEach(track => {
-        if (track) {
-            if (typeof track.stopAllVoices === 'function') {
+    stop() {
+        this.isPlaying = false;
+        const playBtn = document.getElementById('playBtn');
+        if (playBtn) playBtn.textContent = 'PLAY';
+        
+        this.pauseInterval();
+        this.allTracksStop();
+        
+        this.currentRow = 0;
+        this.updatePlayheadPosition();
+        
+        document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));
+        console.log("Tracker detenido y reseteado.");
+    }
+
+    playRow() {
+        if (!this.isPlaying) return;
+
+        // --- METRÓNOMO VISUAL ---
+        if (this.currentRow % 4 === 0 && this.bpmInput) {
+            this.bpmInput.style.color = '#ffffff';
+            this.bpmInput.style.textShadow = '0 0 10px #ffffff';
+            setTimeout(() => {
+                if(this.bpmInput) {
+                    this.bpmInput.style.color = '#22ff88';
+                    this.bpmInput.style.textShadow = 'none';
+                }
+            }, 100);
+        }
+
+        const anySolo = this.tracks.some(t => t.isSolo);
+
+        this.tracks.forEach(track => {
+            const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
+            const index = this.currentRow % track.patternData.length;
+            const rowData = track.patternData[index];
+
+            if (rowData.note === '===') {
                 track.stopAllVoices();
-            }
-            if (track.trackGain && track.trackGain.gain) {
-                track.trackGain.gain.cancelScheduledValues(now);
-                track.trackGain.gain.setValueAtTime(0, now);
-                setTimeout(() => {
-                    if(!this.isPlaying) track.trackGain.gain.setValueAtTime(1, this.audioEngine.audioCtx.currentTime);
-                }, 50);
-            }
-        }
-    });
-}
-updateVisualStates() {
-    const anySolo = this.tracks.some(t => t.isSolo);
+            } 
+            else if (rowData && rowData.note !== '---') {
+                track.stopAllVoices(); 
 
-    this.tracks.forEach(track => {
-        const isMutedBySolo = anySolo && !track.isSolo;
-        const shouldBeSilent = track.isMuted || isMutedBySolo;
+                if (!shouldBeSilent) {
+                    const voice = this.audioEngine.playNote(
+                        rowData.note, 
+                        rowData.inst, 
+                        rowData.vol, 
+                        track.trackGain, 
+                        track.waveType
+                    ); 
+                    if (voice) track.activeVoices.push(voice);
 
-        track.element.classList.toggle('muted-effect', shouldBeSilent);
-        
-        if (track.trackGain) {
-            const gainValue = shouldBeSilent ? 0 : 1;
-            track.trackGain.gain.setTargetAtTime(gainValue, this.audioEngine.audioCtx.currentTime, 0.01);
-        }
-
-        // ACTUALIZAR BOTONES
-        const soloBtn = track.element.querySelector('.solo-btn');
-        const muteBtn = track.element.querySelector('.mute-btn');
-        if (soloBtn) soloBtn.classList.toggle('active', track.isSolo);
-        if (muteBtn) muteBtn.classList.toggle('active', track.isMuted);
-    });
-}
-toggleSolo(trackToSolo) {
-    trackToSolo.isSolo = !trackToSolo.isSolo;
-    this.updateVisualStates();
-}
-
-playRow() {
-    // --- METRÓNOMO VISUAL ---
-    if (this.currentRow % 4 === 0 && this.bpmInput) {
-        this.bpmInput.style.color = '#ffffff';
-        this.bpmInput.style.textShadow = '0 0 10px #ffffff';
-        
-        setTimeout(() => {
-            if(this.bpmInput) {
-                this.bpmInput.style.color = '#22ff88';
-                this.bpmInput.style.textShadow = 'none';
-            }
-        }, 100);
-    }
-    // --- LÓGICA DE AUDIO ---
-    const anySolo = this.tracks.some(t => t.isSolo);
-
-this.tracks.forEach(track => {
-
-        const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
-
-        const index = this.currentRow % track.patternData.length;
-        const rowData = track.patternData[index];
-
-        if (rowData.note === '===') {
-            track.stopAllVoices();
-        } 
-        
-        else if (rowData && rowData.note !== '---') {
-            track.stopAllVoices(); 
-
-            if (!shouldBeSilent) {
-                const voice = this.audioEngine.playNote(
-                    rowData.note, 
-                    rowData.inst, 
-                    rowData.vol, 
-                    track.trackGain, 
-                    track.waveType
-                ); 
-                if (voice) track.activeVoices.push(voice);
-
-                const rowEl = track.element.querySelectorAll('.tracker-row')[index];
-                if (rowEl) {
-                    rowEl.classList.add('flash');
-                    setTimeout(() => rowEl.classList.remove('flash'), 100);
+                    const rowElements = track.element.querySelectorAll('.tracker-row');
+                    if (rowElements[index]) {
+                        rowElements[index].classList.add('flash');
+                        setTimeout(() => {
+                            if (rowElements[index]) rowElements[index].classList.remove('flash');
+                        }, 100);
+                    }
                 }
             }
-        }
-    });
+        });
 
-    this.updatePlayheadPosition();
-    
-    const maxLen = this.tracks.length > 0 
-        ? Math.max(...this.tracks.map(t => t.patternData.length)) 
-        : 64;
+        this.updatePlayheadPosition();
+        
+        const maxLen = this.tracks.length > 0 
+            ? Math.max(...this.tracks.map(t => t.patternData.length)) 
+            : 64;
 
-    this.currentRow = (this.currentRow + 1) % maxLen;
-}
+        this.currentRow = (this.currentRow + 1) % maxLen;
+    }
+allTracksStop() {
+        const now = this.audioEngine.audioCtx.currentTime;
+        this.tracks.forEach(track => {
+            if (track) {
+                if (typeof track.stopAllVoices === 'function') {
+                    track.stopAllVoices();
+                }
+                if (track.trackGain && track.trackGain.gain) {
+                    track.trackGain.gain.cancelScheduledValues(now);
+                    track.trackGain.gain.setValueAtTime(0, now);
+                    setTimeout(() => {
+                        if(!this.isPlaying) track.trackGain.gain.setValueAtTime(1, this.audioEngine.audioCtx.currentTime);
+                    }, 50);
+                }
+            }
+        });
+    }
 updatePlayheadPosition() {
     this.tracks.forEach(track => {
         const totalRows = track.patternData.length;
@@ -691,6 +635,37 @@ updatePlayheadPosition() {
         if (track.midiVisualizer) {
             track.midiVisualizer.draw(track.patternData, offset);
         }
+    });
+}
+toggleSolo(trackInstance) {
+    trackInstance.isSolo = !trackInstance.isSolo;
+    
+    if (trackInstance.isSolo) {
+        this.tracks.forEach(t => {
+            if (t !== trackInstance) t.isSolo = false;
+        });
+    }
+    this.updateVisualStates();
+}
+
+updateVisualStates() {
+    const anySolo = this.tracks.some(t => t.isSolo);
+
+    this.tracks.forEach(track => {
+        const isMuted = track.isMuted;
+        const isSilencedBySolo = anySolo && !track.isSolo;
+
+        if (isMuted || isSilencedBySolo) {
+            track.element.classList.add('track-silenced');
+        } else {
+            track.element.classList.remove('track-silenced');
+        }
+        const muteBtn = track.element.querySelector('.mute-btn');
+        const soloBtn = track.element.querySelector('.solo-btn');
+        
+        if (muteBtn) muteBtn.style.background = track.isMuted ? '#f00' : '';
+        if (soloBtn) soloBtn.style.background = track.isSolo ? '#ff0' : '';
+        if (soloBtn) soloBtn.style.color = track.isSolo ? '#000' : '';
     });
 }
 exportProject() {
