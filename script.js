@@ -559,10 +559,16 @@ playRow() {
     this.currentRow++;
 }
 
-    updatePlayheadPosition() {
-        const offset = (this.currentRow % 64) * 15;
-        this.tracks.forEach(track => {
-            track.element.querySelector('.tracker-rows').style.transform = `translateY(-${offset}px)`;
-        });
-    }
+updatePlayheadPosition() {
+    this.tracks.forEach(track => {
+        // En lugar de % 64, usamos el largo real de los datos de esa pista
+        const totalRows = track.patternData.length;
+        const index = this.currentRow % totalRows;
+        const offset = index * 15; // 15 es la altura de tracker-row en el CSS
+        
+        const rowsContainer = track.element.querySelector('.tracker-rows');
+        if (rowsContainer) {
+            rowsContainer.style.transform = `translateY(-${offset}px)`;
+        }
+    });
 }
