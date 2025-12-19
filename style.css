@@ -199,15 +199,16 @@ body {
 
 .playhead {
     position: absolute;
-    top: 0;           /* <--- Esto la clava en la fila 00 */
+    top: 0; 
     left: 0;
-    width: 100%;
-    height: 15px;     /* <--- Altura exacta de una fila */
-    background: rgba(255, 165, 0, 0.3); /* Naranja suave */
-    border-top: 1px solid orange;
-    border-bottom: 1px solid orange;
-    pointer-events: none; 
-    z-index: 100;     /* <--- Para que siempre esté por encima de las letras */
+    right: 0;
+    height: 15px;
+    background: rgba(var(--track-color-rgb), 0.2); 
+    border-top: 1px solid var(--track-color);
+    border-bottom: 1px solid var(--track-color);
+    
+    pointer-events: none;
+    z-index: 100;
 }
 
 /* PIE DE PISTA */
@@ -302,6 +303,6 @@ body {
 
 .tracker-grid-container {
     height: 100%;
-    overflow: hidden; /* El scroll lo manejamos por JS con translateY */
+    overflow: hidden;
     position: relative;
 }
