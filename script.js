@@ -471,19 +471,29 @@ document.querySelectorAll('.menu-item span').forEach(span => {
     }
 });
 window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' && !e.target.classList.contains('note-cell')) {
+    const isTyping = (
+        e.target.tagName === 'INPUT' || 
+        e.target.tagName === 'TEXTAREA' || 
+        e.target.isContentEditable
+    );
+    const isTrackerCell = e.target.classList.contains('tracker-cell');
+
+    if (isTyping && !isTrackerCell) {
         return; 
     }
-    if (e.target.id === 'bpmInput') return;
+
     if (e.code === 'Space') {
-        e.preventDefault();
+        e.preventDefault(); 
+        
+
         this.audioEngine.checkContext();
         this.togglePlay();
-    }    
+    }
+    
     if (e.code === 'Escape') {
         this.stop();
     }
-});
+}, false);
         
         this.addTrack();
         this.updateMasterVu();
@@ -664,7 +674,6 @@ updateVisualStates() {
         }
 
         // --- LÓGICA DEL GLOW (BRILLO) ---
-        // Si la pista está activa, le devolvemos su resplandor de color
         const trackColor = track.color;
         if (!isEffectivelyMuted) {
             track.element.style.boxShadow = `0 0 15px rgba(${this.hexToRgb(trackColor)}, 0.2)`;
@@ -672,7 +681,6 @@ updateVisualStates() {
             track.element.style.boxShadow = "none";
         }
 
-        // Actualizar colores de los botones Mute/Solo
         const muteBtn = track.element.querySelector('.mute-btn');
         const soloBtn = track.element.querySelector('.solo-btn');
         
