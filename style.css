@@ -191,6 +191,7 @@ body {
     height: 15px; 
     display: flex; 
     align-items: center; 
+    justify-content: center;
     box-sizing: border-box; 
 } 
 
@@ -476,35 +477,37 @@ body {
     transition: width 0.1s; 
 } 
 .vu-label { font-size: 8px; color: #777; font-weight: bold; }
-/* Note-off estilo Tracker Clásico */
-.note-cell[data-note="==="] {
+/* --- ESTILOS FINALES DE CELDAS --- */
+.tracker-cell:focus { 
+    background-color: rgba(255, 255, 255, 0.2); 
+    outline: 1px solid var(--track-color); 
+    color: #fff; 
+}
+.tracker-cell.note-cell[data-note="==="] {
     background-color: transparent !important;
     color: var(--track-color) !important;
     border: 1px solid var(--track-color) !important;
+    
+    display: inline-block; 
+    height: 10px !important;
+    min-height: 10px !important;
+    width: 32px !important; /* Espacio suficiente para los puntos */
+    
+    line-height: 8px;
+    font-size: 8px;
+    padding: 0 !important;
+    margin: 2px 0 0 5px !important;
     border-radius: 0;
-    box-shadow: none;
-    
-    /* CONTROL DE TAMAÑO */
-    box-sizing: border-box;
-    height: 12px;       /* Altura reducida (la fila mide 15px) */
-    width: 80%;         /* No ocupa todo el ancho de la celda */
-    margin: 1.5px auto; /* Centrado vertical y horizontalmente */
-    padding: 0;
-    line-height: 10px;  /* Centra los puntos ". . ." verticalmente */
-    font-size: 9px;     /* Puntos más pequeños */
-    
-    display: block;     /* Necesario para que el margin auto funcione */
+    box-shadow: none !important;
     text-align: center;
-    filter: brightness(0.7);
+    filter: brightness(0.6);
+    vertical-align: middle;
 }
 
-.note-cell[data-note="==="] {
-    content: ". . ."; 
-}
-
-.note-cell[data-note="==="]:focus {
-    background-color: rgba(var(--track-color-rgb), 0.1) !important;
-    filter: brightness(1.2);
-    outline: none;
-    border-style: double;
+.tracker-cell.note-cell[data-note="==="]:focus {
+    background-color: rgba(var(--track-color-rgb), 0.2) !important;
+    color: var(--track-color) !important;
+    filter: brightness(1.1);
+    outline: none !important;
+    border-style: double !important;
 }
