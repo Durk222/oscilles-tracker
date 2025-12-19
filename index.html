@@ -13,11 +13,11 @@
         <header class="rack-header">
             <h1>OSCILLESTRACKER <span class="version">v0.3.2</span></h1>
 
-                               <div class="master-vu-container">
-                                          <div class="vu-meter">
-                   <div id="masterVuFill" class="vu-fill"></div>
-                                          </div>
-                            <span class="vu-label">MASTER</span>
+            <div class="master-vu-container">
+                <div class="vu-meter">
+                    <div id="masterVuFill" class="vu-fill"></div>
+                </div>
+                <span class="vu-label">MASTER LEVEL</span>
             </div>
             
             <div class="transport">
@@ -31,81 +31,79 @@
             </div>
         </header>
     
-          <div class="main-toolbar">
-    <div class="toolbar-item">File
-        <div class="dropdown">
-            <span>New</span>
-            <span>Open...</span>
-            <span id="saveBtn">Save Project</span>
+        <div class="main-toolbar">
+            <div class="menu-item toolbar-item">FILE
+                <div class="dropdown">
+                    <span>NEW PROJECT</span>
+                    <span>OPEN PROJECT</span>
+                    <span>SAVE PROJECT</span>
+                </div>
+            </div>
+            <div class="menu-item toolbar-item">EDIT
+                <div class="dropdown">
+                    <span>UNDO</span>
+                    <span>REDO</span>
+                    <span>CLEAR PATTERN</span>
+                </div>
+            </div>
+            <div class="menu-item toolbar-item">VIEW
+                <div class="dropdown">
+                    <span>FULLSCREEN</span>
+                </div>
+            </div>
+            <div class="toolbar-item">HELP</div>
         </div>
-    </div>
-    <div class="toolbar-item">Edit
-        <div class="dropdown">
-            <span>Undo</span>
-            <span>Redo</span>
-            <span>Clear Pattern</span>
-        </div>
-    </div>
-    <div class="toolbar-item">View
-        <div class="dropdown">
-            <span>Compact Mode</span>
-            <span>Fullscreen</span>
-        </div>
-    </div>
-    <div class="toolbar-item">Help</div>
-</div>
         
-<main class="rack-body" id="rackBody">
-        </main>
-</div>
+        <main class="rack-body" id="rackBody"></main>
+    </div>
         
-<template id="track-template">
-<div class="track-module">
-<div class="track-header">
-    <div class="track-controls-left">
-        <span class="track-name" contenteditable="true">TRACK</span>
-        <select class="wave-type-select">
-            <option value="sawtooth">SAW</option>
-            <option value="square">SQR</option>
-            <option value="triangle">TRI</option>
-            <option value="sine">SIN</option>
-        </select>
-    </div>
-    
-    <div class="track-controls-right">
-        <button class="mute-btn">M</button>
-        <button class="solo-btn">S</button>
-        <input type="color" class="track-color-picker">
-        <button class="delete-track-btn">×</button>
-    </div>
-</div>
+    <template id="track-template">
+        <div class="track-module">
+            <div class="track-header">
+                <div class="track-controls-left">
+                    <span class="track-name" contenteditable="true">TRACK</span>
+                    <select class="wave-type-select">
+                        <option value="sawtooth">SAW</option>
+                        <option value="square">SQR</option>
+                        <option value="triangle">TRI</option>
+                        <option value="sine">SIN</option>
+                    </select>
+                </div>
+                
+                <div class="track-controls-right">
+                    <button class="mute-btn">M</button>
+                    <button class="solo-btn">S</button>
+                    <input type="color" class="track-color-picker">
+                    <button class="delete-track-btn">×</button>
+                </div>
+            </div>
+
             <div class="track-interface">
                 <div class="column col-left">
-                    <div class="label-overlay">MIDI IN</div>
                     <canvas class="midi-canvas"></canvas>
                 </div>
+
                 <div class="column col-mid">
                     <div class="tracker-header">
-                         <div class="header-cell row-num-col"></div> 
-                               <span class="header-cell">NOTE</span>
-                               <span class="header-cell">INST</span>
-                               <span class="header-cell">VOL</span>
-                               <span class="header-cell">FX</span>
-                  </div>
+                        <div class="row-num-col"></div> 
+                        <span>NOTE</span>
+                        <span>INST</span>
+                        <span>VOL</span>
+                        <span>FX</span>
+                    </div>
                     <div class="tracker-grid-container">
                         <div class="playhead"></div>
-                        
-                        <div class="tracker-rows">
-                            </div>
+                        <div class="tracker-rows"></div>
                     </div>
                 </div>
+
                 <div class="column col-right">
-                    <div class="label-overlay">AUDIO OUT</div>
                     <div class="wave-chart-container"></div>
                 </div>
             </div>
+
             <div class="track-footer">
-                <button class="add-row-btn">+ Añadir Fila</button>
+                <button class="add-row-btn">+ ADD ROW</button>
             </div>
         </div>
     </template>
