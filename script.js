@@ -470,19 +470,20 @@ document.querySelectorAll('.menu-item span').forEach(span => {
         });
     }
 });
-        window.addEventListener('keydown', (e) => {
-            if (e.target.id === 'bpmInput') return;
-
-            if (e.code === 'Space') {
-                e.preventDefault();
-                this.audioEngine.checkContext();
-                this.togglePlay();
-            }
-            
-            if (e.code === 'Escape') {
-                this.stop();
-            }
-        });
+window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' && !e.target.classList.contains('note-cell')) {
+        return; 
+    }
+    if (e.target.id === 'bpmInput') return;
+    if (e.code === 'Space') {
+        e.preventDefault();
+        this.audioEngine.checkContext();
+        this.togglePlay();
+    }    
+    if (e.code === 'Escape') {
+        this.stop();
+    }
+});
         
         this.addTrack();
         this.updateMasterVu();
