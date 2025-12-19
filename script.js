@@ -35,7 +35,13 @@ class AudioEngine {
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         this.masterGain = this.audioCtx.createGain();
         this.masterGain.gain.value = 0.5;
-        this.masterGain.connect(this.audioCtx.destination);
+
+        this.masterAnalyser = this.audioCtx.createAnalyser();
+        this.masterAnalyser.fftSize = 256; 
+        
+        // El camino correcto es: Gain -> Analyser -> Destination
+        this.masterGain.connect(this.masterAnalyser); 
+        this.masterAnalyser.connect(this.audioCtx.destination);
     }
 
     async checkContext() {
@@ -354,7 +360,6 @@ if (deleteBtn) {
     
     row.className = rowClass;
     // ------------------------------------------
-        row.className = `tracker-row ${index % 4 === 0 ? 'highlight' : ''}`;
         row.innerHTML = `
             <div class="row-number">${index.toString().padStart(2,'0')}</div>
             <input type="text" class="tracker-cell note-cell" value="${rowData.note}" readonly>
@@ -489,8 +494,27 @@ class AppController {
        if (addTrackBtn) {
        addTrackBtn.addEventListener('click', () => this.addTrack());
          }
-        // Crea la primera pista por defecto
+// --- LISTENERS DE ARCHIVO ---
+document.querySelectorAll('.menu-item span').forEach(span => {
+    const text = span.textContent.toUpperCase();
+    if (text.includes('SAVE PROJECT')) {
+        span.style.cursor = 'pointer';
+        span.addEventListener('click', () => this.exportProject());
+    }
+    if (text.includes('OPEN PROJECT')) {
+        span.style.cursor = 'pointer';
+        span.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.osc';
+            input.onchange = (e) => this.importProject(e.target.files[0]);
+            input.click();
+        });
+    }
+});
+        // Se llaman al iniciar la página
         this.addTrack();
+        this.updateMasterVu();
     }
 
                                                             
@@ -514,18 +538,14 @@ class AppController {
     }
 
     removeTrack(trackInstance) {
-    // 1. Confirmación opcional
     if (!confirm(`¿Borrar ${trackInstance.element.querySelector('.track-name').textContent}?`)) return;
 
-    // 2. Eliminar del array de pistas para que deje de sonar en playRow()
     this.tracks = this.tracks.filter(t => t !== trackInstance);
 
-    // 3. Limpiar visualizadores (opcional pero recomendado para performance)
     if (trackInstance.audioVisualizer && trackInstance.audioVisualizer.chart) {
         trackInstance.audioVisualizer.chart.dispose();
     }
-
-    // 4. Eliminar del DOM (la interfaz)
+        
     trackInstance.element.remove();
     
     console.log(`Pista ${trackInstance.id} eliminada.`);
@@ -541,7 +561,6 @@ class AppController {
         this.startInterval();
     }
 
-// Método nuevo para centralizar el efecto visual
 updateVisualStates() {
     const anySolo = this.tracks.some(t => t.isSolo);
 
@@ -549,11 +568,8 @@ updateVisualStates() {
         const isMutedBySolo = anySolo && !track.isSolo;
         const shouldBeSilent = track.isMuted || isMutedBySolo;
 
-        // EFECTO VISUAL
         track.element.classList.toggle('muted-effect', shouldBeSilent);
         
-        // CONTROL DE AUDIO REAL (Opcional pero recomendado)
-        // Esto silencia cualquier cola de sonido (release) instantáneamente
         if (track.trackGain) {
             const gainValue = shouldBeSilent ? 0 : 1;
             track.trackGain.gain.setTargetAtTime(gainValue, this.audioEngine.audioCtx.currentTime, 0.02);
@@ -566,8 +582,6 @@ updateVisualStates() {
         if (muteBtn) muteBtn.classList.toggle('active', track.isMuted);
     });
 }
-
-// Actualiza toggleSolo para que use el nuevo método
 toggleSolo(trackToSolo) {
     trackToSolo.isSolo = !trackToSolo.isSolo;
     this.updateVisualStates(); // Llamada inmediata
@@ -647,4 +661,61 @@ updatePlayheadPosition() {
             }
         });
     } 
+    exportProject() {
+    const projectData = {
+        bpm: this.bpm,
+        tracks: this.tracks.map(t => ({
+            id: t.id,
+            color: t.color,
+            waveType: t.waveType,
+            patternData: t.patternData
+        }))
+    };
+    const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `project_${Date.now()}.osc`;
+    a.click();
+}
+
+importProject(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const data = JSON.parse(e.target.result);
+
+        document.getElementById('rackBody').innerHTML = '';
+        this.tracks = [];
+        
+        this.bpm = data.bpm;
+        if(this.bpmInput) this.bpmInput.value = this.bpm;
+        
+        data.tracks.forEach(tData => {
+            const track = new Track(tData.id, this, tData.color);
+            track.render(document.getElementById('rackBody'));
+            track.waveType = tData.waveType;
+            track.patternData = tData.patternData;
+            track.initGrid();
+            this.tracks.push(track);
+        });
+    };
+    reader.readAsText(file);
+   }
+    updateMasterVu() {
+        const data = new Uint8Array(this.audioEngine.masterAnalyser.frequencyBinCount);
+        this.audioEngine.masterAnalyser.getByteFrequencyData(data);
+        
+        // Calculamos el volumen promedio de todas las frecuencias
+        const average = data.reduce((a, b) => a + b, 0) / data.length;
+        
+        const vuFill = document.getElementById('masterVuFill');
+        if (vuFill) {
+            // Multiplicamos por 2 para que la barra suba con facilidad (sensibilidad)
+            const volumeWidth = Math.min(average * 2, 100); 
+            vuFill.style.width = `${volumeWidth}%`;
+        }
+
+        // Se llama a sí misma para crear un bucle infinito de animación
+        requestAnimationFrame(() => this.updateMasterVu());
+    }
 }
