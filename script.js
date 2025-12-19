@@ -558,17 +558,16 @@ playRow() {
     this.updatePlayheadPosition();
     this.currentRow++;
 }
-
 updatePlayheadPosition() {
-    this.tracks.forEach(track => {
-        // En lugar de % 64, usamos el largo real de los datos de esa pista
-        const totalRows = track.patternData.length;
-        const index = this.currentRow % totalRows;
-        const offset = index * 15; // 15 es la altura de tracker-row en el CSS
-        
-        const rowsContainer = track.element.querySelector('.tracker-rows');
-        if (rowsContainer) {
-            rowsContainer.style.transform = `translateY(-${offset}px)`;
-        }
-    });
-}
+        this.tracks.forEach(track => {
+            const totalRows = track.patternData.length;
+            const index = this.currentRow % totalRows;
+            const offset = index * 15; 
+            
+            const rowsContainer = track.element.querySelector('.tracker-rows');
+            if (rowsContainer) {
+                rowsContainer.style.transform = `translateY(-${offset}px)`;
+            }
+        });
+    } // Cierra updatePlayheadPosition
+} // Cierra AppController
