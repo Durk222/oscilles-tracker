@@ -458,3 +458,22 @@ body {
     pointer-events: auto;
     filter: brightness(1.5); /* Resalta un poco los botones para poder "desmutear" */
 }
+
+/* RESALTADO DE COMPÁS (Cada 4 filas) */
+/* Usamos un color ligeramente más claro que el negro del fondo */
+.tracker-row.beat-highlight {
+    background-color: rgba(255, 255, 255, 0.05); /* Un gris muy suave y transparente */
+}
+
+/* RESALTADO DE INICIO DE COMPÁS (Cada 16 filas) */
+/* Para marcar el inicio de una frase musical, un poco más intenso */
+.tracker-row.measure-highlight {
+    background-color: rgba(255, 255, 255, 0.1); 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Aseguramos que los números de fila también se vean más claros en estas filas */
+.tracker-row.beat-highlight .row-number,
+.tracker-row.measure-highlight .row-number {
+    color: #aaa; /* El número resalta más que el gris oscuro estándar */
+}
