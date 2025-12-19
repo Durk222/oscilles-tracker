@@ -36,7 +36,6 @@ class AudioEngine {
         this.masterAnalyser = this.audioCtx.createAnalyser();
         this.masterAnalyser.fftSize = 256; 
         
-        // El camino correcto es: Gain -> Analyser -> Destination
         this.masterGain.connect(this.masterAnalyser); 
         this.masterAnalyser.connect(this.audioCtx.destination);
     }
@@ -108,7 +107,6 @@ class MidiVisualizer {
     setBackgroundColor(hexColor) { this.bgColor = hexColor; }
 
     draw(patternData) {
-    // AJUSTE: Sincronizar tamaño del buffer con el tamaño real de la pantalla
     if (this.canvas.width !== this.canvas.clientWidth || this.canvas.height !== this.canvas.clientHeight) {
         this.canvas.width = this.canvas.clientWidth;
         this.canvas.height = this.canvas.clientHeight;
@@ -122,25 +120,30 @@ class MidiVisualizer {
         const midiRange = maxMidi - minMidi;
 
         patternData.forEach((row, rowIndex) => {
-            if (row.note && row.note !== '---') {
+        
+            const y = rowIndex * rowHeight;
+            
+            if (row.note && row.note !== '---' && row.note !== '===') {
                 const midiNum = this.audioEngine.getMidiNumber(row.note);
                 let normalizedPos = (midiNum - minMidi) / midiRange;
                 normalizedPos = Math.max(0, Math.min(1, normalizedPos));
-
+                
                 const x = normalizedPos * (this.canvas.width - 10);
-                const y = rowIndex * rowHeight;
                 
                 this.ctx.fillStyle = this.color;
                 this.ctx.fillRect(x, y, 8, rowHeight - 1);
+                } else if (row.note === '===') {
+                      this.ctx.fillStyle = this.color;
+                     this.ctx.globalAlpha = 0.5;
+                     this.ctx.fillRect(0, y + 7, this.canvas.width, 2);
+                     this.ctx.globalAlpha = 1.0;
             }
         });
     }
 }
-
-// --- VISUALIZADOR DE AUDIO (CANVAS NATIVO - ESTILO AUDACITY) ---
+// --- VISUALIZADOR DE AUDIO ---
 class AudioVisualizer {
     constructor(containerId, analyserNode, color) {
-        // CORRECCIÓN: Buscamos el elemento por ID para evitar el error appendChild
         this.container = document.getElementById(containerId);
         this.analyser = analyserNode;
         this.color = color;
@@ -167,7 +170,6 @@ class AudioVisualizer {
         this.ctx.scale(dpr, dpr);
     }
 
-    // Métodos para actualizar visuales en tiempo real
     setColor(newColor) { this.color = newColor; }
     setBackgroundColor(hexColor) { this.bgColor = hexColor; }
 
@@ -386,7 +388,6 @@ class Track {
     
         if (cell) {
         cell.value = noteValue;
-        // CORRECCIÓN: Guardamos el valor en un atributo de datos para que el CSS lo vea
         cell.setAttribute('data-note', noteValue);
         }
     
@@ -439,24 +440,21 @@ class AppController {
         
         document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         
-        // 2. Configurar el Input de BPM (Fuera de los botones de play)
         this.bpmInput = document.getElementById('bpmInput');
         if (this.bpmInput) {
-        // Sincronizar valor inicial
         this.bpmInput.value = this.bpm; 
         
          this.bpmInput.addEventListener('change', (e) => {
             this.bpm = parseFloat(e.target.value);
             console.log("Nuevo BPM:", this.bpm);
             
-            // Si está sonando, reiniciamos el ritmo inmediatamente
             if (this.isPlaying) {
                 this.pauseInterval();
                 this.startInterval();
             }
         });
     }
-        // Botón Añadir Pista
+
        const addTrackBtn = document.getElementById('addTrackBtn'); 
        if (addTrackBtn) {
        addTrackBtn.addEventListener('click', () => this.addTrack());
@@ -479,7 +477,20 @@ document.querySelectorAll('.menu-item span').forEach(span => {
         });
     }
 });
-        // Se llaman al iniciar la página
+        window.addEventListener('keydown', (e) => {
+            if (e.target.id === 'bpmInput') return;
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.audioEngine.checkContext();
+                this.togglePlay();
+            }
+            
+            if (e.code === 'Escape') {
+                this.stop();
+            }
+        });
+        
         this.addTrack();
         this.updateMasterVu();
     }
@@ -495,7 +506,6 @@ document.querySelectorAll('.menu-item span').forEach(span => {
     }
         
     addTrack() {
-    // Genera un color aleatorio simple o usa una lista
     const colors = ['#ff9900', '#00ccff', '#ff0055', '#22ff88', '#aa00ff', '#ffff00'];
     const color = colors[this.tracks.length % colors.length];
     
@@ -515,14 +525,43 @@ document.querySelectorAll('.menu-item span').forEach(span => {
     }
     
     togglePlay() {
-        this.isPlaying ? this.stop() : this.play();
+    if (this.isPlaying) {
+        this.stop();
+    } else {
+        this.play();
     }
+}
 
-    play() {
-        this.isPlaying = true;
-        document.getElementById('playBtn').textContent = 'PAUSE';
-        this.startInterval();
-    }
+play() {
+    this.isPlaying = true;
+    document.getElementById('playBtn').textContent = 'PAUSE';
+    this.updateVisualStates();
+    this.startInterval();
+}
+
+    stop() {
+    this.isPlaying = false;
+    document.getElementById('playBtn').textContent = 'PLAY';
+    this.pauseInterval();
+    this.allTracksStop();
+    
+    this.currentRow = 0;
+    this.updatePlayheadPosition();
+    document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));
+}
+
+allTracksStop() {
+    this.tracks.forEach(track => {
+        if (track && typeof track.stopAllVoices === 'function') {
+            track.stopAllVoices();
+        }
+        if (track.trackGain && track.trackGain.gain) {
+            const now = this.audioEngine.audioCtx.currentTime;
+            track.trackGain.gain.cancelScheduledValues(now);
+            track.trackGain.gain.setValueAtTime(0, now);
+        }
+    });
+}
 
 updateVisualStates() {
     const anySolo = this.tracks.some(t => t.isSolo);
@@ -535,7 +574,7 @@ updateVisualStates() {
         
         if (track.trackGain) {
             const gainValue = shouldBeSilent ? 0 : 1;
-            track.trackGain.gain.setTargetAtTime(gainValue, this.audioEngine.audioCtx.currentTime, 0.02);
+            track.trackGain.gain.setTargetAtTime(gainValue, this.audioEngine.audioCtx.currentTime, 0.01);
         }
 
         // ACTUALIZAR BOTONES
@@ -547,29 +586,18 @@ updateVisualStates() {
 }
 toggleSolo(trackToSolo) {
     trackToSolo.isSolo = !trackToSolo.isSolo;
-    this.updateVisualStates(); // Llamada inmediata
+    this.updateVisualStates();
 }
-
-    stop() {
-        this.isPlaying = false;
-        document.getElementById('playBtn').textContent = 'PLAY';
-        this.pauseInterval();
-        
-        //LIMPIEZA EN EL SCROLL
-        this.currentRow = 0;
-        this.updatePlayheadPosition();
-        document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));
-    }
 
 playRow() {
     // --- METRÓNOMO VISUAL ---
     if (this.currentRow % 4 === 0 && this.bpmInput) {
-        this.bpmInput.style.color = '#ffffff'; // Color de destello
-        this.bpmInput.style.textShadow = '0 0 10px #ffffff'; // Opcional: un pequeño brillo
+        this.bpmInput.style.color = '#ffffff';
+        this.bpmInput.style.textShadow = '0 0 10px #ffffff';
         
         setTimeout(() => {
             if(this.bpmInput) {
-                this.bpmInput.style.color = '#22ff88'; // Vuelve al color original
+                this.bpmInput.style.color = '#22ff88';
                 this.bpmInput.style.textShadow = 'none';
             }
         }, 100);
@@ -578,21 +606,17 @@ playRow() {
     const anySolo = this.tracks.some(t => t.isSolo);
 
 this.tracks.forEach(track => {
-        // 1. Validar si la pista debe sonar (Mute/Solo)
+
         const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
 
         const index = this.currentRow % track.patternData.length;
         const rowData = track.patternData[index];
 
-        // 2. CORTE SECO (Note-Off)
-        // Se ejecuta incluso si está en mute para asegurar que no queden notas "colgadas"
         if (rowData.note === '===') {
             track.stopAllVoices();
         } 
         
-        // 3. DISPARO DE NOTA (Solo si no está en silencio)
         else if (rowData && rowData.note !== '---') {
-            // Siempre detenemos la nota anterior antes de tocar la nueva (Comportamiento Mono Tracker)
             track.stopAllVoices(); 
 
             if (!shouldBeSilent) {
@@ -604,10 +628,8 @@ this.tracks.forEach(track => {
                     track.waveType
                 );
                 
-                // Guardamos la referencia para poder cortarla después con '==='
                 if (voice) track.activeVoices.push(voice);
 
-                // EFECTO VISUAL: Destello
                 const rowEl = track.element.querySelectorAll('.tracker-row')[index];
                 if (rowEl) {
                     rowEl.classList.add('flash');
@@ -655,7 +677,7 @@ updatePlayheadPosition() {
     a.click();
 }
 
-importProject(file) {
+    importProject(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const data = JSON.parse(e.target.result);
