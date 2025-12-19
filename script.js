@@ -524,38 +524,77 @@ document.querySelectorAll('.menu-item span').forEach(span => {
         this.play();
     }
 }
+playRow() {
+    if (!this.isPlaying) return;
+    const anySolo = this.tracks.some(t => t.isSolo);
 
-play() {
-    this.isPlaying = true;
-    document.getElementById('playBtn').textContent = 'PAUSE';
-    this.updateVisualStates();
-    this.startInterval();
+    this.tracks.forEach(track => {
+        const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
+        const index = this.currentRow % track.patternData.length;
+        const rowData = track.patternData[index];
+
+        if (rowData.note === '===') {
+            track.stopAllVoices();
+        } 
+        else if (rowData && rowData.note !== '---') {
+            track.stopAllVoices(); 
+
+            if (!shouldBeSilent) {
+                const voice = this.audioEngine.playNote(
+                    rowData.note, 
+                    rowData.inst, 
+                    rowData.vol, 
+                    track.trackGain, 
+                    track.waveType
+                ); 
+                if (voice) track.activeVoices.push(voice);
+                const rowElements = track.element.querySelectorAll('.tracker-row');
+                if (rowElements[index]) {
+                    rowElements[index].classList.add('flash');
+                    setTimeout(() => {
+                        if (rowElements[index]) rowElements[index].classList.remove('flash');
+                    }, 100);
+                }
+            }
+        }
+    });
+
+    this.updatePlayheadPosition();
+    const maxLen = this.tracks.length > 0 
+        ? Math.max(...this.tracks.map(t => t.patternData.length)) 
+        : 64;
+
+    this.currentRow = (this.currentRow + 1) % maxLen;
 }
-
-    stop() {
+stop() {
     this.isPlaying = false;
     document.getElementById('playBtn').textContent = 'PLAY';
+    
     this.pauseInterval();
     this.allTracksStop();
-    
     this.currentRow = 0;
     this.updatePlayheadPosition();
-    document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));
+    
+    document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));    
+    console.log("Tracker detenido y reseteado a 0");
 }
-
 allTracksStop() {
+    const now = this.audioEngine.audioCtx.currentTime;
     this.tracks.forEach(track => {
-        if (track && typeof track.stopAllVoices === 'function') {
-            track.stopAllVoices();
-        }
-        if (track.trackGain && track.trackGain.gain) {
-            const now = this.audioEngine.audioCtx.currentTime;
-            track.trackGain.gain.cancelScheduledValues(now);
-            track.trackGain.gain.setValueAtTime(0, now);
+        if (track) {
+            if (typeof track.stopAllVoices === 'function') {
+                track.stopAllVoices();
+            }
+            if (track.trackGain && track.trackGain.gain) {
+                track.trackGain.gain.cancelScheduledValues(now);
+                track.trackGain.gain.setValueAtTime(0, now);
+                setTimeout(() => {
+                    if(!this.isPlaying) track.trackGain.gain.setValueAtTime(1, this.audioEngine.audioCtx.currentTime);
+                }, 50);
+            }
         }
     });
 }
-
 updateVisualStates() {
     const anySolo = this.tracks.some(t => t.isSolo);
 
