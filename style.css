@@ -134,14 +134,28 @@ body {
     border-right: 1px solid var(--border); 
 }
 
-/* Fondos dinámicos para los lados */
-.col-left { width: 70px; background: var(--track-color-dark); }
-.col-mid { flex: 1; background: #0a0a0a; overflow: hidden; position: relative; }
-.col-right { width: 70px; background: var(--track-color-dark); border-right: none; }
+/* Fondos dinámicos para los lados - Ahora flexibles */
+.col-left { 
+    width: 65px; 
+    background: var(--track-color-dark); 
+    display: flex;
+    flex-direction: column;
+}
 
-.label-overlay {
-    position: absolute; top: 2px; left: 2px;
-    font-size: 8px; color: #fff; opacity: 0.5; z-index: 10;
+.col-right { 
+    width: 65px; 
+    background: var(--track-color-dark); 
+    border-right: none;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Forzar que el canvas y el visualizador ocupen todo el alto */
+.midi-canvas, .wave-chart-container {
+    flex: 1; /* Ocupa todo el espacio vertical disponible */
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
 }
 
 .tracker-header {
