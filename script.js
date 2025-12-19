@@ -8,8 +8,7 @@ const KEYBOARD_MAP = {
     'g': { note: 'F#', oct: 4 }, 'b': { note: 'G-', oct: 4 },
     'h': { note: 'G#', oct: 4 }, 'n': { note: 'A-', oct: 4 },
     'j': { note: 'A#', oct: 4 }, 'm': { note: 'B-', oct: 4 },
-    ',': { note: 'C-', oct: 5 }, // Salto a octava siguiente
-
+    ',': { note: 'C-', oct: 5 },
     // Octava 5 (Fila superior - QWERTY)
     'q': { note: 'C-', oct: 5 }, '2': { note: 'C#', oct: 5 },
     'w': { note: 'D-', oct: 5 }, '3': { note: 'D#', oct: 5 },
@@ -19,13 +18,10 @@ const KEYBOARD_MAP = {
     '7': { note: 'A#', oct: 5 }, 'u': { note: 'B-', oct: 5 },
     'i': { note: 'C-', oct: 6 }
 };
-
 document.addEventListener('DOMContentLoaded', () => {
-
     const app = new AppController();
     app.init();
 });
-
 // --- MOTOR DE AUDIO ---
 class AudioEngine {
     constructor() {
@@ -45,7 +41,6 @@ class AudioEngine {
             await this.audioCtx.resume();
         }
     }
-
 playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth') {
     this.checkContext();
     if (noteName === '---' || noteName === '===') return null;
@@ -92,7 +87,6 @@ playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth'
         return notes.indexOf(name) + (octave + 1) * 12;
     }
 }
-
 // --- VISUALIZADOR MIDI ---
 class MidiVisualizer {
     constructor(canvas, color, audioEngine) {
@@ -106,40 +100,43 @@ class MidiVisualizer {
     setColor(newColor) { this.color = newColor; }
     setBackgroundColor(hexColor) { this.bgColor = hexColor; }
 
-    draw(patternData) {
+draw(patternData, offsetY = 0) {
     if (this.canvas.width !== this.canvas.clientWidth || this.canvas.height !== this.canvas.clientHeight) {
         this.canvas.width = this.canvas.clientWidth;
         this.canvas.height = this.canvas.clientHeight;
     }
-        this.ctx.fillStyle = this.bgColor; 
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = this.bgColor; 
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        const rowHeight = 15;
-        const minMidi = 24; 
-        const maxMidi = 96; 
-        const midiRange = maxMidi - minMidi;
+    const rowHeight = 15;
+    const minMidi = 24; 
+    const maxMidi = 96; 
+    const midiRange = maxMidi - minMidi;
 
-        patternData.forEach((row, rowIndex) => {
+    this.ctx.save();
+    this.ctx.translate(0, -offsetY);
+
+    patternData.forEach((row, rowIndex) => {
+        const y = rowIndex * rowHeight;
         
-            const y = rowIndex * rowHeight;
+        if (y - offsetY < -rowHeight || y - offsetY > this.canvas.height) return;
+        if (row.note && row.note !== '---' && row.note !== '===') {
+            const midiNum = this.audioEngine.getMidiNumber(row.note);
+            let normalizedPos = (midiNum - minMidi) / midiRange;
+            normalizedPos = Math.max(0, Math.min(1, normalizedPos));
             
-            if (row.note && row.note !== '---' && row.note !== '===') {
-                const midiNum = this.audioEngine.getMidiNumber(row.note);
-                let normalizedPos = (midiNum - minMidi) / midiRange;
-                normalizedPos = Math.max(0, Math.min(1, normalizedPos));
-                
-                const x = normalizedPos * (this.canvas.width - 10);
-                
-                this.ctx.fillStyle = this.color;
-                this.ctx.fillRect(x, y, 8, rowHeight - 1);
-                } else if (row.note === '===') {
-                      this.ctx.fillStyle = this.color;
-                     this.ctx.globalAlpha = 0.5;
-                     this.ctx.fillRect(0, y + 7, this.canvas.width, 2);
-                     this.ctx.globalAlpha = 1.0;
-            }
-        });
-    }
+            const x = normalizedPos * (this.canvas.width - 10);
+            
+            this.ctx.fillStyle = this.color;
+            this.ctx.fillRect(x, y, 8, rowHeight - 1);
+        } else if (row.note === '===') {
+            this.ctx.fillStyle = this.color;
+            this.ctx.globalAlpha = 0.5;
+            this.ctx.fillRect(0, y + 7, this.canvas.width, 2);
+            this.ctx.globalAlpha = 1.0;
+        }
+    });
+    this.ctx.restore();
 }
 // --- VISUALIZADOR DE AUDIO ---
 class AudioVisualizer {
@@ -314,15 +311,16 @@ class Track {
         } else if (index % 4 === 0) {
             rowClass += ' beat-highlight';
         }
-        
-        row.className = rowClass;
+        const displayNote = rowData.note === '===' ? '. . .' : rowData.note;
         row.innerHTML = `
-            <div class="row-number">${index.toString().padStart(2,'0')}</div>
-            <input type="text" class="tracker-cell note-cell" value="${rowData.note}" readonly>
-            <input type="text" class="tracker-cell inst-cell" value="${rowData.inst}" maxlength="2">
-            <input type="text" class="tracker-cell vol-cell" value="${rowData.vol}" maxlength="2">
-            <input type="text" class="tracker-cell fx-cell" value="${rowData.fx}" maxlength="3">
-        `;
+    <div class="row-number">${index.toString().padStart(2,'0')}</div>
+    <input type="text" class="tracker-cell note-cell" 
+    value="${displayNote}" 
+    data-note="${rowData.note}" readonly>
+    <input type="text" class="tracker-cell inst-cell" value="${rowData.inst}" maxlength="2">
+    <input type="text" class="tracker-cell vol-cell" value="${rowData.vol}" maxlength="2">
+    <input type="text" class="tracker-cell fx-cell" value="${rowData.fx}" maxlength="3">
+`;
         container.appendChild(row);
 
         const noteInput = row.querySelector('.note-cell');
@@ -653,22 +651,27 @@ this.tracks.forEach(track => {
     this.currentRow = (this.currentRow + 1) % maxLen;
 }
 updatePlayheadPosition() {
-        this.tracks.forEach(track => {
-            const totalRows = track.patternData.length;
-            const index = this.currentRow % totalRows;
-            const offset = index * 15; 
-            
-            const rowsContainer = track.element.querySelector('.tracker-rows');
-            if (rowsContainer) {
-                rowsContainer.style.transform = `translateY(-${offset}px)`;
-            }
-        });
-    } 
-    exportProject() {
+    this.tracks.forEach(track => {
+        const totalRows = track.patternData.length;
+        const index = this.currentRow % totalRows;
+        const offset = index * 15; 
+        
+        const rowsContainer = track.element.querySelector('.tracker-rows');
+        if (rowsContainer) {
+            rowsContainer.style.transform = `translateY(-${offset}px)`;
+        }
+        if (track.midiVisualizer) {
+            track.midiVisualizer.draw(track.patternData, offset);
+        }
+    });
+}
+exportProject() {
     const projectData = {
+        version: "0.8.5",
         bpm: this.bpm,
         tracks: this.tracks.map(t => ({
             id: t.id,
+            name: t.element.querySelector('.track-name').textContent, // Guardamos nombre
             color: t.color,
             waveType: t.waveType,
             patternData: t.patternData
@@ -678,32 +681,42 @@ updatePlayheadPosition() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `project_${Date.now()}.osc`;
+    a.download = `project_v085_${Date.now()}.osc`;
     a.click();
 }
 
-    importProject(file) {
+importProject(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const data = JSON.parse(e.target.result);
-
         document.getElementById('rackBody').innerHTML = '';
         this.tracks = [];
-        
         this.bpm = data.bpm;
         if(this.bpmInput) this.bpmInput.value = this.bpm;
         
         data.tracks.forEach(tData => {
             const track = new Track(tData.id, this, tData.color);
             track.render(document.getElementById('rackBody'));
+            
+            const nameEl = track.element.querySelector('.track-name');
+            if (nameEl) nameEl.textContent = tData.name || `TRACK ${tData.id + 1}`;
+            
             track.waveType = tData.waveType;
+            const waveSelect = track.element.querySelector('.wave-type-select');
+            if (waveSelect) waveSelect.value = tData.waveType;
+            
             track.patternData = tData.patternData;
             track.initGrid();
+
+            track.patternData.forEach((row, idx) => {
+                if (row.note === '===') track.updateNoteCell(idx, '===');
+            });
+            
             this.tracks.push(track);
         });
     };
     reader.readAsText(file);
-   }
+}
 updateMasterVu() {
         const data = new Uint8Array(this.audioEngine.masterAnalyser.frequencyBinCount);
         this.audioEngine.masterAnalyser.getByteFrequencyData(data);
