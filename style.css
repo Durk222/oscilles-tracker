@@ -478,17 +478,24 @@ body {
 .vu-label { font-size: 8px; color: #777; font-weight: bold; }
 /* Note-off estilo Tracker Clásico */
 .note-cell[data-note="==="] {
-    background-color: transparent !important; 
-    color: var(--track-color) !important;     
-    border: 1px solid var(--track-color) !important; 
-    border-radius: 0 !important;          
-    box-shadow: none !important;       
-    filter: brightness(0.8);
+    background-color: transparent !important;
+    color: var(--track-color) !important;
+    border: 1px solid var(--track-color) !important;
+    border-radius: 0;
+    box-shadow: none;
+    
+    /* CONTROL DE TAMAÑO */
+    box-sizing: border-box;
+    height: 12px;       /* Altura reducida (la fila mide 15px) */
+    width: 80%;         /* No ocupa todo el ancho de la celda */
+    margin: 1.5px auto; /* Centrado vertical y horizontalmente */
+    padding: 0;
+    line-height: 10px;  /* Centra los puntos ". . ." verticalmente */
+    font-size: 9px;     /* Puntos más pequeños */
+    
+    display: block;     /* Necesario para que el margin auto funcione */
     text-align: center;
-    font-weight: bold;
-    letter-spacing: 2px;
-    cursor: default;
-    outline: none;
+    filter: brightness(0.7);
 }
 
 .note-cell[data-note="==="] {
@@ -498,4 +505,6 @@ body {
 .note-cell[data-note="==="]:focus {
     background-color: rgba(var(--track-color-rgb), 0.1) !important;
     filter: brightness(1.2);
+    outline: none;
+    border-style: double;
 }
