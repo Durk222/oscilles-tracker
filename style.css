@@ -190,6 +190,8 @@ body {
 .tracker-row { 
     height: 15px; 
     display: flex; 
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     align-items: center; 
     justify-content: flex-start;
     box-sizing: border-box; 
@@ -215,6 +217,7 @@ body {
     font-size: 11px; 
     outline: none; 
     cursor: default; 
+    display: inline-block;
 } 
 
 .tracker-cell.note-cell { 
@@ -518,4 +521,5 @@ body {
     align-items: center;
     justify-content: center;
     flex: 1;
+    width: 0;
 }
