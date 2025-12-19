@@ -313,6 +313,16 @@ if (nameEl) {
         const midiCanvas = this.element.querySelector('.midi-canvas');
         this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
 
+        // --- NUEVO: CLICK PARA ABRIR PIANO ROLL ---
+        midiCanvas.style.cursor = 'pointer';
+        midiCanvas.addEventListener('click', () => {
+        if (this.app.pianoRoll) {
+        this.app.pianoRoll.open(this);
+        } else {
+        console.error("PianoRoll no cargado");
+              }
+       });
+
         const waveContainer = this.element.querySelector('.wave-chart-container');
         const containerId = `chart-container-${this.id}-${Date.now()}`; 
         waveContainer.id = containerId; 
@@ -572,6 +582,8 @@ class AppController {
         this.bpm = 130;
         this.intervalId = null;
         this.bpmInput = null;
+        this.audioEngine = new AudioEngine();
+        this.pianoRoll = null; // Variable para guardar la instancia
     }
 
     init() {
@@ -593,6 +605,9 @@ class AppController {
             if (this.isPlaying) {
                 this.pauseInterval();
                 this.startInterval();
+            }
+             if (typeof PianoRoll !== 'undefined') {
+        this.pianoRoll = new PianoRoll(this);
             }
         });
     }
