@@ -223,65 +223,57 @@ class Track {
         this.isSolo = false;
     }
 
-render(container) {
-    const template = document.getElementById('track-template');
-    const clone = template.content.cloneNode(true);
-    this.element = clone.querySelector('.track-module');
-    container.appendChild(this.element);
+    render(container) {
+        const template = document.getElementById('track-template');
+        const clone = template.content.cloneNode(true);
+        this.element = clone.querySelector('.track-module');
+        container.appendChild(this.element);
 
-    const muteBtn = this.element.querySelector('.mute-btn');
-    const soloBtn = this.element.querySelector('.solo-btn');
+        const muteBtn = this.element.querySelector('.mute-btn');
+        const soloBtn = this.element.querySelector('.solo-btn');
 
-    // SELECTOR DE ONDA
-    const waveSelect = this.element.querySelector('.wave-type-select');
-    if (waveSelect) {
-        this.waveType = waveSelect.value;
-        waveSelect.addEventListener('change', (e) => {
-            this.waveType = e.target.value;
+        const waveSelect = this.element.querySelector('.wave-type-select');
+        if (waveSelect) {
+            this.waveType = waveSelect.value;
+            waveSelect.addEventListener('change', (e) => {
+                this.waveType = e.target.value;
+            });
+        }
+
+        muteBtn.addEventListener('click', () => {
+            this.isMuted = !this.isMuted;
+            this.app.updateVisualStates(); 
         });
+
+        soloBtn.addEventListener('click', () => {
+            this.app.toggleSolo(this);
+        });
+
+        this.initColorPicker();
+        this.initGrid();
+
+        const addRowBtn = this.element.querySelector('.add-row-btn');
+        if (addRowBtn) {
+            addRowBtn.addEventListener('click', () => this.addRow());
+        }
+
+        const deleteBtn = this.element.querySelector('.delete-track-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => this.app.removeTrack(this));
+        }
+
+        const midiCanvas = this.element.querySelector('.midi-canvas');
+        this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
+
+        const waveContainer = this.element.querySelector('.wave-chart-container');
+        const containerId = `chart-container-${this.id}-${Date.now()}`; 
+        waveContainer.id = containerId; 
+        this.audioVisualizer = new AudioVisualizer(containerId, this.analyser, this.color);
+
+        setTimeout(() => {
+            this.updateColor(this.color);
+        }, 50);
     }
-
-    // BOTONES MUTE Y SOLO
-    muteBtn.addEventListener('click', () => {
-        this.isMuted = !this.isMuted;
-        this.app.updateVisualStates(); 
-    });
-
-    soloBtn.addEventListener('click', () => {
-        this.app.toggleSolo(this);
-    });
-
-    this.initColorPicker();
-    this.initGrid();
-
-    // --- NUEVAS LÓGICAS DE BOTONES ---
-    const addRowBtn = this.element.querySelector('.add-row-btn');
-    if (addRowBtn) {
-        addRowBtn.addEventListener('click', () => this.addRow());
-    }
-
-    const deleteBtn = this.element.querySelector('.delete-track-btn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', () => this.app.removeTrack(this));
-    }
-
-    // --- VISUALIZADORES (CANVAS NATIVO) ---
-    const midiCanvas = this.element.querySelector('.midi-canvas');
-    this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
-
-    // AudioVisualizer
-    const waveContainer = this.element.querySelector('.wave-chart-container');
-    const containerId = `chart-container-${this.id}-${Date.now()}`; 
-    waveContainer.id = containerId; 
-    
-    // Invocamos la clase corregida
-    this.audioVisualizer = new AudioVisualizer(containerId, this.analyser, this.color);
-
-    // Sincronización inicial de colores
-    setTimeout(() => {
-        this.updateColor(this.color);
-    }, 50);
-}
 
     initColorPicker() {
         const picker = this.element.querySelector('.track-color-picker');
@@ -317,16 +309,14 @@ render(container) {
 
     createRowElement(container, rowData, index) {
         const row = document.createElement('div');
-        // --- NUEVA LÓGICA DE CLASES PARA COMPÁS ---
         let rowClass = 'tracker-row';
         if (index % 16 === 0) {
-        rowClass += ' measure-highlight'; // Cada 16 filas (Compás completo)
-          } else if (index % 4 === 0) {
-            rowClass += ' beat-highlight';    // Cada 4 filas (Pulso/Beat)
-    }
-    
-    row.className = rowClass;
-    // ------------------------------------------
+            rowClass += ' measure-highlight';
+        } else if (index % 4 === 0) {
+            rowClass += ' beat-highlight';
+        }
+        
+        row.className = rowClass;
         row.innerHTML = `
             <div class="row-number">${index.toString().padStart(2,'0')}</div>
             <input type="text" class="tracker-cell note-cell" value="${rowData.note}" readonly>
@@ -342,74 +332,67 @@ render(container) {
             noteInput.focus();
         });
 
-noteInput.addEventListener('keydown', (e) => {
-    e.preventDefault();
-    const key = e.key; // Usamos e.key sin lowerCase para detectar CapsLock correctamente
-    
-    if (key === 'Delete' || key === 'Backspace') {
-        this.updateNoteCell(index, '---');
-        this.updateVolCell(index, '--');
-    } else if (key === 'CapsLock') {
-        // Insertamos el código de Note-Off
-        this.updateNoteCell(index, '===');
-        const nextRow = container.children[index + 1];
-        if (nextRow) nextRow.querySelector('.note-cell').focus();
-    } else if (KEYBOARD_MAP[key.toLowerCase()]) {
-        const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
-        const fullNote = noteInfo.note + noteInfo.oct;
-        
-        this.updateNoteCell(index, fullNote);
-        this.updateVolCell(index, '64'); 
-        
-        // Al tocar manualmente, también gestionamos la voz
-        this.stopAllVoices();
-        const voice = this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
-        if (voice) this.activeVoices.push(voice);
-        
-        const nextRow = container.children[index + 1];
-        if (nextRow) nextRow.querySelector('.note-cell').focus();
-    }
-});
+        noteInput.addEventListener('keydown', (e) => {
+            e.preventDefault();
+            const key = e.key;
+            if (key === 'Delete' || key === 'Backspace') {
+                this.updateNoteCell(index, '---');
+                this.updateVolCell(index, '--');
+            } else if (key === 'CapsLock') {
+                this.updateNoteCell(index, '===');
+                const nextRow = container.children[index + 1];
+                if (nextRow) nextRow.querySelector('.note-cell').focus();
+            } else if (KEYBOARD_MAP[key.toLowerCase()]) {
+                const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
+                const fullNote = noteInfo.note + noteInfo.oct;
+                this.updateNoteCell(index, fullNote);
+                this.updateVolCell(index, '64'); 
+                this.stopAllVoices();
+                const voice = this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
+                if (voice) this.activeVoices.push(voice);
+                const nextRow = container.children[index + 1];
+                if (nextRow) nextRow.querySelector('.note-cell').focus();
+            }
+        });
 
-stopAllVoices() {
-    this.activeVoices.forEach(v => {
-        try {
-            // Bajamos volumen instantáneamente para evitar el "clic"
-            v.gainNode.gain.cancelScheduledValues(this.audioEngine.audioCtx.currentTime);
-            v.gainNode.gain.setValueAtTime(0, this.audioEngine.audioCtx.currentTime);
-            v.osc.stop();
-        } catch(e) {
-            // En caso de que ya estuviera detenido
-        }
-    });
-    this.activeVoices = [];
-}
-        
         const volInput = row.querySelector('.vol-cell');
+        volInput.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+                e.preventDefault();
+                const volMap = {
+                    '1': '0A', '2': '14', '3': '1E', '4': '28', '5': '32', 
+                    '6': '3C', '7': '46', '8': '50', '9': '5A', '0': '64'
+                };
+                const newVol = volMap[e.key];
+                this.updateVolCell(index, newVol);
+                const nextRow = container.children[index + 1];
+                if (nextRow) nextRow.querySelector('.vol-cell').focus();
+            }
+        });
+    }
 
-volInput.addEventListener('keydown', (e) => {
-    // Si es un número del 0 al 9
-    if (e.key >= '0' && e.key <= '9') {
-        e.preventDefault();
-        const volMap = {
-            '1': '0A', '2': '14', '3': '1E', '4': '28', '5': '32', 
-            '6': '3C', '7': '46', '8': '50', '9': '5A', '0': '64'
-        };
-        const newVol = volMap[e.key];
-        this.updateVolCell(index, newVol);
-        
-        // Auto-avanzar al siguiente volumen
-        const nextRow = container.children[index + 1];
-        if (nextRow) nextRow.querySelector('.vol-cell').focus();
-          }
-         // Si el usuario escribe manualmente (letras/números), permitimos el comportamiento normal
-      });
+    stopAllVoices() {
+        this.activeVoices.forEach(v => {
+            try {
+                v.gainNode.gain.cancelScheduledValues(this.audioEngine.audioCtx.currentTime);
+                v.gainNode.gain.setValueAtTime(0, this.audioEngine.audioCtx.currentTime);
+                v.osc.stop();
+            } catch(e) {}
+        });
+        this.activeVoices = [];
     }
 
     updateNoteCell(index, noteValue) {
         this.patternData[index].note = noteValue;
-        this.element.querySelectorAll('.note-cell')[index].value = noteValue;
+        const noteInputs = this.element.querySelectorAll('.note-cell');
+        if (noteInputs[index]) noteInputs[index].value = noteValue;
         this.midiVisualizer.draw(this.patternData);
+    }
+
+    updateVolCell(index, volValue) {
+        this.patternData[index].vol = volValue;
+        const volInputs = this.element.querySelectorAll('.vol-cell');
+        if (volInputs[index]) volInputs[index].value = volValue;
     }
 
     addRow() {
@@ -430,13 +413,6 @@ volInput.addEventListener('keydown', (e) => {
         b = Math.max(0, Math.min(255, b + percent));
         return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
-    updateVolCell(index, volValue) {
-    this.patternData[index].vol = volValue;
-    const volInputs = this.element.querySelectorAll('.vol-cell');
-    if (volInputs[index]) {
-        volInputs[index].value = volValue;
-    }
-  }
 }
 
 // --- CONTROLADOR PRINCIPAL ---
@@ -599,7 +575,6 @@ playRow() {
 
 this.tracks.forEach(track => {
         // 1. Validar si la pista debe sonar (Mute/Solo)
-        const anySolo = this.tracks.some(t => t.isSolo);
         const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
 
         const index = this.currentRow % track.patternData.length;
@@ -698,21 +673,17 @@ importProject(file) {
     };
     reader.readAsText(file);
    }
-    updateMasterVu() {
+updateMasterVu() {
         const data = new Uint8Array(this.audioEngine.masterAnalyser.frequencyBinCount);
         this.audioEngine.masterAnalyser.getByteFrequencyData(data);
         
-        // Calculamos el volumen promedio de todas las frecuencias
         const average = data.reduce((a, b) => a + b, 0) / data.length;
-        
         const vuFill = document.getElementById('masterVuFill');
         if (vuFill) {
-            // Multiplicamos por 2 para que la barra suba con facilidad (sensibilidad)
-            const volumeWidth = Math.min(average * 2, 100); 
-            vuFill.style.width = `${volumeWidth}%`;
-        }
 
-        // Se llama a sí misma para crear un bucle infinito de animación
+        const volumeWidth = Math.min(average * 2, 100); 
+        vuFill.style.width = `${volumeWidth}%`;
+        }
         requestAnimationFrame(() => this.updateMasterVu());
     }
-}
+} // FIN.
