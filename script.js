@@ -54,19 +54,16 @@ playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth'
     osc.type = waveType;
     osc.frequency.setValueAtTime(baseFreq, this.audioCtx.currentTime);
 
-    // --- LÓGICA DE ARPEGGIO (0xy) ---
     if (fxCommand && fxCommand.startsWith('0')) {
         const x = parseInt(fxCommand[1], 16);
         const y = parseInt(fxCommand[2], 16);
         
-        // Calculamos las frecuencias de las 3 notas del arpegio
         const freq2 = baseFreq * Math.pow(2, x / 12);
         const freq3 = baseFreq * Math.pow(2, y / 12);
 
         const speed = 0.05; 
         const now = this.audioCtx.currentTime;
-
-        // IMPORTANTE: cancelamos cualquier cambio futuro si la nota se detiene
+        
         osc.frequency.cancelScheduledValues(now);
 
         for (let i = 0; i < 30; i++) {
@@ -76,8 +73,6 @@ playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth'
             osc.frequency.setValueAtTime(freq3, t + speed * 2);
         }
     }
-
-    // --- VOLUMEN ---
     let volVal = 0.5;
     if (volumeHex && volumeHex !== '--') {
         volVal = parseInt(volumeHex, 16) / 127; 
@@ -223,7 +218,6 @@ class AudioVisualizer {
         this.ctx.stroke();
     }
 }
-
 // --- CLASE PISTA (TRACK) ---
 class Track {
     constructor(id, appController, initialColor) {
@@ -313,7 +307,6 @@ if (nameEl) {
         const midiCanvas = this.element.querySelector('.midi-canvas');
         this.midiVisualizer = new MidiVisualizer(midiCanvas, this.color, this.audioEngine);
 
-        // --- NUEVO: CLICK PARA ABRIR PIANO ROLL ---
         midiCanvas.style.cursor = 'pointer';
         midiCanvas.addEventListener('click', () => {
         if (this.app.pianoRoll) {
@@ -383,13 +376,11 @@ createRowElement(container, rowData, index) {
     
     container.appendChild(row);
 
-    // Función auxiliar para seleccionar el texto al hacer clic (Edición rápida)
     const setupQuickEdit = (input) => {
         input.addEventListener('focus', () => input.select());
         input.addEventListener('click', () => input.select());
     };
 
-    // --- LÓGICA DE NOTA ---
     const noteInput = row.querySelector('.note-cell');
     noteInput.addEventListener('click', () => {
         this.audioEngine.checkContext();
@@ -399,20 +390,17 @@ createRowElement(container, rowData, index) {
 noteInput.addEventListener('keydown', (e) => {
         e.preventDefault();
         const key = e.key;
-
-        // --- BORRAR NOTA ---
+    
         if (key === 'Delete' || key === 'Backspace') {
             this.updateNoteCell(index, '---');
             this.updateVolCell(index, '--');
             this.stopAllVoices();
         } 
-        // --- COLOCAR OFF (NOTE CUT) ---
         else if (key === 'CapsLock') {
             this.updateNoteCell(index, '===');
             this.stopAllVoices();
             this.moveFocus(container, index, '.note-cell');
         } 
-        // --- ESCRIBIR NOTA ---
         else if (KEYBOARD_MAP[key.toLowerCase()]) {
             const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
             const fullNote = noteInfo.note + noteInfo.oct;
@@ -439,7 +427,6 @@ noteInput.addEventListener('keydown', (e) => {
             if (voice) {
                 this.activeVoices.push(voice);
                 
-                // --- LÓGICA ANTI-MIGRAÑA (Solo en modo Edición) ---
                 if (!this.app.isPlaying) {
                     const previewDuration = 300; 
                     setTimeout(() => {
@@ -454,15 +441,12 @@ noteInput.addEventListener('keydown', (e) => {
             this.moveFocus(container, index, '.note-cell');
         }
     });
-
-    // --- LÓGICA DE INSTRUMENTO ---
     const instInput = row.querySelector('.inst-cell');
     setupQuickEdit(instInput);
     instInput.addEventListener('input', (e) => {
         this.patternData[index].inst = e.target.value.toUpperCase().padStart(2, '0').substring(0, 2);
     });
-
-    // --- LÓGICA DE VOLUMEN ---
+    
     const volInput = row.querySelector('.vol-cell');
     setupQuickEdit(volInput);
     volInput.addEventListener('keydown', (e) => {
@@ -474,7 +458,6 @@ noteInput.addEventListener('keydown', (e) => {
         }
     });
 
-    // --- LÓGICA DE EFECTOS (FX) ---
     const fxInput = row.querySelector('.fx-cell');
     setupQuickEdit(fxInput);
     
@@ -571,7 +554,6 @@ stopAllVoices() {
         return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
 }
-
 // --- CONTROLADOR PRINCIPAL ---
 class AppController {
     constructor() {
@@ -582,8 +564,7 @@ class AppController {
         this.bpm = 130;
         this.intervalId = null;
         this.bpmInput = null;
-        this.audioEngine = new AudioEngine();
-        this.pianoRoll = null; // Variable para guardar la instancia
+        this.pianoRoll = null;
     }
 
     init() {
@@ -596,102 +577,106 @@ class AppController {
         
         this.bpmInput = document.getElementById('bpmInput');
         if (this.bpmInput) {
-        this.bpmInput.value = this.bpm; 
-        
-         this.bpmInput.addEventListener('change', (e) => {
-            this.bpm = parseFloat(e.target.value);
-            console.log("Nuevo BPM:", this.bpm);
+            this.bpmInput.value = this.bpm; 
             
-            if (this.isPlaying) {
-                this.pauseInterval();
-                this.startInterval();
+            this.bpmInput.addEventListener('change', (e) => {
+                this.bpm = parseFloat(e.target.value);
+                
+                if (this.isPlaying) {
+                    this.pauseInterval();
+                    this.startInterval();
+                }
+            });
+        }
+
+        // 3. Botón Añadir Pista
+        const addTrackBtn = document.getElementById('addTrackBtn'); 
+        if (addTrackBtn) {
+            addTrackBtn.addEventListener('click', () => this.addTrack());
+        }
+
+        // 4. Menú (Guardar/Abrir)
+        document.querySelectorAll('.menu-item span').forEach(span => {
+            const text = span.textContent.toUpperCase();
+            if (text.includes('SAVE PROJECT')) {
+                span.style.cursor = 'pointer';
+                span.addEventListener('click', () => this.exportProject());
             }
-             if (typeof PianoRoll !== 'undefined') {
-        this.pianoRoll = new PianoRoll(this);
+            if (text.includes('OPEN PROJECT')) {
+                span.style.cursor = 'pointer';
+                span.addEventListener('click', () => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.osc';
+                    input.onchange = (e) => this.importProject(e.target.files[0]);
+                    input.click();
+                });
             }
         });
-    }
 
-       const addTrackBtn = document.getElementById('addTrackBtn'); 
-       if (addTrackBtn) {
-       addTrackBtn.addEventListener('click', () => this.addTrack());
-         }
-// --- LISTENERS DE ARCHIVO ---
-document.querySelectorAll('.menu-item span').forEach(span => {
-    const text = span.textContent.toUpperCase();
-    if (text.includes('SAVE PROJECT')) {
-        span.style.cursor = 'pointer';
-        span.addEventListener('click', () => this.exportProject());
-    }
-    if (text.includes('OPEN PROJECT')) {
-        span.style.cursor = 'pointer';
-        span.addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.osc';
-            input.onchange = (e) => this.importProject(e.target.files[0]);
-            input.click();
-        });
-    }
-});
-window.addEventListener('keydown', (e) => {
-    const isTyping = (
-        e.target.tagName === 'INPUT' || 
-        e.target.tagName === 'TEXTAREA' || 
-        e.target.isContentEditable
-    );
-    const isTrackerCell = e.target.classList.contains('tracker-cell');
+        // 5. Teclado Global
+        window.addEventListener('keydown', (e) => {
+            const isTyping = (
+                e.target.tagName === 'INPUT' || 
+                e.target.tagName === 'TEXTAREA' || 
+                e.target.isContentEditable
+            );
+            const isTrackerCell = e.target.classList.contains('tracker-cell');
 
-    if (isTyping && !isTrackerCell) {
-        return; 
-    }
+            if (isTyping && !isTrackerCell) {
+                return; 
+            }
 
-    if (e.code === 'Space') {
-        e.preventDefault(); 
+            if (e.code === 'Space') {
+                e.preventDefault(); 
+                this.audioEngine.checkContext();
+                this.togglePlay();
+            }
+            
+            if (e.code === 'Escape') {
+                this.stop();
+            }
+        }, false);
         
+        // --- INICIALIZACIÓN DEL PIANO ROLL ---
+        if (typeof PianoRoll !== 'undefined') {
+            this.pianoRoll = new PianoRoll(this);
+            console.log("PianoRoll cargado correctamente.");
+        } else {
+            console.warn("Script de PianoRoll no encontrado.");
+        }
 
-        this.audioEngine.checkContext();
-        this.togglePlay();
-    }
-    
-    if (e.code === 'Escape') {
-        this.stop();
-    }
-}, false);
-        
         this.addTrack();
-        this.updateMasterVu();
+        this.updateMasterVu(); // Iniciamos el loop visual del Master
     }
-
-                                                            
+                            
     startInterval() {
-    const msPerRow = (60000 / this.bpm) / 4; 
-    this.intervalId = setInterval(() => this.playRow(), msPerRow);
+        const msPerRow = (60000 / this.bpm) / 4; 
+        this.intervalId = setInterval(() => this.playRow(), msPerRow);
     }
 
     pauseInterval() {
-    if (this.intervalId) clearInterval(this.intervalId);
+        if (this.intervalId) clearInterval(this.intervalId);
     }
         
     addTrack() {
-    const colors = ['#ff9900', '#00ccff', '#ff0055', '#22ff88', '#aa00ff', '#ffff00'];
-    const color = colors[this.tracks.length % colors.length];
-    
-    const track = new Track(this.tracks.length, this, color);
-    track.render(document.getElementById('rackBody'));
-    this.tracks.push(track);
+        const colors = ['#ff9900', '#00ccff', '#ff0055', '#22ff88', '#aa00ff', '#ffff00'];
+        const color = colors[this.tracks.length % colors.length];
+        
+        const track = new Track(this.tracks.length, this, color);
+        track.render(document.getElementById('rackBody'));
+        this.tracks.push(track);
     }
 
     removeTrack(trackInstance) {
-    if (!confirm(`¿Borrar ${trackInstance.element.querySelector('.track-name').textContent}?`)) return;
+        if (!confirm(`¿Borrar ${trackInstance.element.querySelector('.track-name').textContent}?`)) return;
 
-    this.tracks = this.tracks.filter(t => t !== trackInstance);
-        
-    trackInstance.element.remove();
-    
-    console.log(`Pista ${trackInstance.id} eliminada.`);
+        this.tracks = this.tracks.filter(t => t !== trackInstance);
+        trackInstance.element.remove();
+        console.log(`Pista ${trackInstance.id} eliminada.`);
     }
-togglePlay() {
+
+    togglePlay() {
         if (this.isPlaying) {
             this.stop();
         } else {
@@ -722,69 +707,72 @@ togglePlay() {
         document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));
         console.log("Tracker detenido y reseteado.");
     }
-playRow() {
-    if (!this.isPlaying) return;
 
-    // --- METRÓNOMO VISUAL --- (Mantenemos tu lógica igual)
-    if (this.currentRow % 4 === 0 && this.bpmInput) {
-        this.bpmInput.style.color = '#ffffff';
-        this.bpmInput.style.textShadow = '0 0 10px #ffffff';
-        setTimeout(() => {
-            if(this.bpmInput) {
-                this.bpmInput.style.color = '#22ff88';
-                this.bpmInput.style.textShadow = 'none';
-            }
-        }, 100);
-    }
+    playRow() {
+        if (!this.isPlaying) return;
 
-    const anySolo = this.tracks.some(t => t.isSolo);
+        // Metrónomo Visual
+        if (this.currentRow % 4 === 0 && this.bpmInput) {
+            this.bpmInput.style.color = '#ffffff';
+            this.bpmInput.style.textShadow = '0 0 10px #ffffff';
+            setTimeout(() => {
+                if(this.bpmInput) {
+                    this.bpmInput.style.color = '#22ff88';
+                    this.bpmInput.style.textShadow = 'none';
+                }
+            }, 100);
+        }
 
-    this.tracks.forEach(track => {
-        const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
-        const index = this.currentRow % track.patternData.length;
-        const rowData = track.patternData[index];
+        const anySolo = this.tracks.some(t => t.isSolo);
 
-        if (rowData.note === '===') {
-            track.stopAllVoices();
-        } 
-        else if (rowData && rowData.note !== '---') {
-            track.stopAllVoices(); 
+        this.tracks.forEach(track => {
+            const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
+            const index = this.currentRow % track.patternData.length;
+            const rowData = track.patternData[index];
 
-            if (!shouldBeSilent) {
-                // --- CAMBIO AQUÍ: Extraemos el FX ---
-                const fxCommand = rowData.fx !== '---' ? rowData.fx : null;
+            if (rowData.note === '===') {
+                track.stopAllVoices();
+            } 
+            else if (rowData && rowData.note !== '---') {
+                track.stopAllVoices(); 
 
-                const voice = this.audioEngine.playNote(
-                    rowData.note, 
-                    rowData.inst, 
-                    rowData.vol, 
-                    track.trackGain, 
-                    track.waveType,
-                    fxCommand // <--- AÑADIMOS ESTE ARGUMENTO
-                ); 
-                
-                if (voice) track.activeVoices.push(voice);
+                if (!shouldBeSilent) {
+                    // Extraer comando FX para pasarlo al motor de audio
+                    const fxCommand = rowData.fx !== '---' ? rowData.fx : null;
 
-                const rowElements = track.element.querySelectorAll('.tracker-row');
-                if (rowElements[index]) {
-                    rowElements[index].classList.add('flash');
-                    setTimeout(() => {
-                        if (rowElements[index]) rowElements[index].classList.remove('flash');
-                    }, 100);
+                    const voice = this.audioEngine.playNote(
+                        rowData.note, 
+                        rowData.inst, 
+                        rowData.vol, 
+                        track.trackGain, 
+                        track.waveType,
+                        fxCommand
+                    ); 
+                    
+                    if (voice) track.activeVoices.push(voice);
+
+                    // Efecto visual flash en la fila
+                    const rowElements = track.element.querySelectorAll('.tracker-row');
+                    if (rowElements[index]) {
+                        rowElements[index].classList.add('flash');
+                        setTimeout(() => {
+                            if (rowElements[index]) rowElements[index].classList.remove('flash');
+                        }, 100);
+                    }
                 }
             }
-        }
-    });
+        });
 
-    this.updatePlayheadPosition();
-    
-    const maxLen = this.tracks.length > 0 
-        ? Math.max(...this.tracks.map(t => t.patternData.length)) 
-        : 64;
+        this.updatePlayheadPosition();
+        
+        const maxLen = this.tracks.length > 0 
+            ? Math.max(...this.tracks.map(t => t.patternData.length)) 
+            : 64;
 
-    this.currentRow = (this.currentRow + 1) % maxLen;
-}
-allTracksStop() {
+        this.currentRow = (this.currentRow + 1) % maxLen;
+    }
+
+    allTracksStop() {
         const now = this.audioEngine.audioCtx.currentTime;
         this.tracks.forEach(track => {
             if (track) {
@@ -801,136 +789,144 @@ allTracksStop() {
             }
         });
     }
-updatePlayheadPosition() {
-    this.tracks.forEach(track => {
-        const totalRows = track.patternData.length;
-        const index = this.currentRow % totalRows;
-        const offset = index * 15; 
-        
-        const rowsContainer = track.element.querySelector('.tracker-rows');
-        if (rowsContainer) {
-            rowsContainer.style.transform = `translateY(-${offset}px)`;
-        }
-        if (track.midiVisualizer) {
-            track.midiVisualizer.draw(track.patternData, offset);
-        }
-    });
-}
-toggleSolo(trackInstance) {
-    trackInstance.isSolo = !trackInstance.isSolo;
-    if (trackInstance.isSolo) {
-        this.tracks.forEach(t => { if (t !== trackInstance) t.isSolo = false; });
-    }
-    this.updateVisualStates();
-}
-updateVisualStates() {
-    const anySolo = this.tracks.some(t => t.isSolo);
 
-    this.tracks.forEach(track => {
-        const isSilencedBySolo = anySolo && !track.isSolo;
-        const isEffectivelyMuted = track.isMuted || isSilencedBySolo;
-        
-        // --- LÓGICA DE OSCURIDAD (DIMMING) ---
-        if (isEffectivelyMuted) {
-            track.element.style.opacity = "0.8";
-            track.element.style.filter = "grayscale(0.8) brightness(0.5)";
-            track.element.classList.add('track-silenced');
-        } else {
-            track.element.style.opacity = "1";
-            track.element.style.filter = "none";
-            track.element.classList.remove('track-silenced');
-        }
-
-        // --- LÓGICA DEL GLOW (BRILLO) ---
-        const trackColor = track.color;
-        if (!isEffectivelyMuted) {
-            track.element.style.boxShadow = `0 0 15px rgba(${this.hexToRgb(trackColor)}, 0.2)`;
-        } else {
-            track.element.style.boxShadow = "none";
-        }
-
-        const muteBtn = track.element.querySelector('.mute-btn');
-        const soloBtn = track.element.querySelector('.solo-btn');
-        
-        if (muteBtn) {
-            muteBtn.style.backgroundColor = track.isMuted ? "#ff4444" : "#444";
-            muteBtn.style.boxShadow = track.isMuted ? "0 0 10px #ff4444" : "none";
-        }
-        if (soloBtn) {
-            soloBtn.style.backgroundColor = track.isSolo ? "#ffcc00" : "#444";
-            soloBtn.style.color = track.isSolo ? "#000" : "#fff";
-            soloBtn.style.boxShadow = track.isSolo ? "0 0 10px #ffcc00" : "none";
-        }
-    });
-}
-hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? 
-        `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` 
-        : "255, 255, 255";
-}
-exportProject() {
-    const projectData = {
-        version: "0.8.5",
-        bpm: this.bpm,
-        tracks: this.tracks.map(t => ({
-            id: t.id,
-            name: t.element.querySelector('.track-name').textContent, // Guardamos nombre
-            color: t.color,
-            waveType: t.waveType,
-            patternData: t.patternData
-        }))
-    };
-    const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `project_v085_${Date.now()}.osc`;
-    a.click();
-}
-importProject(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const data = JSON.parse(e.target.result);
-        document.getElementById('rackBody').innerHTML = '';
-        this.tracks = [];
-        this.bpm = data.bpm;
-        if(this.bpmInput) this.bpmInput.value = this.bpm;
-        
-        data.tracks.forEach(tData => {
-            const track = new Track(tData.id, this, tData.color);
-            track.render(document.getElementById('rackBody'));
+    updatePlayheadPosition() {
+        this.tracks.forEach(track => {
+            const totalRows = track.patternData.length;
+            const index = this.currentRow % totalRows;
+            const offset = index * 15; 
             
-            const nameEl = track.element.querySelector('.track-name');
-            if (nameEl) nameEl.textContent = tData.name || `TRACK ${tData.id + 1}`;
-            
-            track.waveType = tData.waveType;
-            const waveSelect = track.element.querySelector('.wave-type-select');
-            if (waveSelect) waveSelect.value = tData.waveType;
-            
-            track.patternData = tData.patternData;
-            track.initGrid();
-
-            track.patternData.forEach((row, idx) => {
-                if (row.note === '===') track.updateNoteCell(idx, '===');
-            });
-            
-            this.tracks.push(track);
+            const rowsContainer = track.element.querySelector('.tracker-rows');
+            if (rowsContainer) {
+                rowsContainer.style.transform = `translateY(-${offset}px)`;
+            }
+            if (track.midiVisualizer) {
+                track.midiVisualizer.draw(track.patternData, offset);
+            }
         });
-    };
-    reader.readAsText(file);
-}
-updateMasterVu() {
+    }
+
+    toggleSolo(trackInstance) {
+        trackInstance.isSolo = !trackInstance.isSolo;
+        if (trackInstance.isSolo) {
+            this.tracks.forEach(t => { if (t !== trackInstance) t.isSolo = false; });
+        }
+        this.updateVisualStates();
+    }
+
+    updateVisualStates() {
+        const anySolo = this.tracks.some(t => t.isSolo);
+
+        this.tracks.forEach(track => {
+            const isSilencedBySolo = anySolo && !track.isSolo;
+            const isEffectivelyMuted = track.isMuted || isSilencedBySolo;
+            
+            if (isEffectivelyMuted) {
+                track.element.style.opacity = "0.8";
+                track.element.style.filter = "grayscale(0.8) brightness(0.5)";
+                track.element.classList.add('track-silenced');
+            } else {
+                track.element.style.opacity = "1";
+                track.element.style.filter = "none";
+                track.element.classList.remove('track-silenced');
+            }
+
+            const trackColor = track.color;
+            if (!isEffectivelyMuted) {
+                track.element.style.boxShadow = `0 0 15px rgba(${this.hexToRgb(trackColor)}, 0.2)`;
+            } else {
+                track.element.style.boxShadow = "none";
+            }
+
+            const muteBtn = track.element.querySelector('.mute-btn');
+            const soloBtn = track.element.querySelector('.solo-btn');
+            
+            if (muteBtn) {
+                muteBtn.style.backgroundColor = track.isMuted ? "#ff4444" : "#444";
+                muteBtn.style.boxShadow = track.isMuted ? "0 0 10px #ff4444" : "none";
+            }
+            if (soloBtn) {
+                soloBtn.style.backgroundColor = track.isSolo ? "#ffcc00" : "#444";
+                soloBtn.style.color = track.isSolo ? "#000" : "#fff";
+                soloBtn.style.boxShadow = track.isSolo ? "0 0 10px #ffcc00" : "none";
+            }
+        });
+    }
+
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? 
+            `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` 
+            : "255, 255, 255";
+    }
+
+    exportProject() {
+        const projectData = {
+            version: "0.8.5",
+            bpm: this.bpm,
+            tracks: this.tracks.map(t => ({
+                id: t.id,
+                name: t.element.querySelector('.track-name').textContent,
+                color: t.color,
+                waveType: t.waveType,
+                patternData: t.patternData
+            }))
+        };
+        const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `project_v085_${Date.now()}.osc`;
+        a.click();
+    }
+
+    importProject(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = JSON.parse(e.target.result);
+            document.getElementById('rackBody').innerHTML = '';
+            this.tracks = [];
+            this.bpm = data.bpm;
+            if(this.bpmInput) this.bpmInput.value = this.bpm;
+            
+            data.tracks.forEach(tData => {
+                const track = new Track(tData.id, this, tData.color);
+                track.render(document.getElementById('rackBody'));
+                
+                const nameEl = track.element.querySelector('.track-name');
+                if (nameEl) nameEl.textContent = tData.name || `TRACK ${tData.id + 1}`;
+                
+                track.waveType = tData.waveType;
+                const waveSelect = track.element.querySelector('.wave-type-select');
+                if (waveSelect) waveSelect.value = tData.waveType;
+                
+                track.patternData = tData.patternData;
+                track.initGrid();
+
+                // Asegurar que los Note-Off se pinten correctamente
+                track.patternData.forEach((row, idx) => {
+                    if (row.note === '===') track.updateNoteCell(idx, '===');
+                });
+                
+                this.tracks.push(track);
+            });
+            console.log("Proyecto cargado correctamente.");
+        };
+        reader.readAsText(file);
+    }
+
+    updateMasterVu() {
+        if (!this.audioEngine || !this.audioEngine.masterAnalyser) return;
+
         const data = new Uint8Array(this.audioEngine.masterAnalyser.frequencyBinCount);
         this.audioEngine.masterAnalyser.getByteFrequencyData(data);
         
         const average = data.reduce((a, b) => a + b, 0) / data.length;
         const vuFill = document.getElementById('masterVuFill');
         if (vuFill) {
-
-        const volumeWidth = Math.min(average * 2, 100); 
-        vuFill.style.width = `${volumeWidth}%`;
+            const volumeWidth = Math.min(average * 2, 100); 
+            vuFill.style.width = `${volumeWidth}%`;
         }
         requestAnimationFrame(() => this.updateMasterVu());
     }
-} // FIN.
+}
