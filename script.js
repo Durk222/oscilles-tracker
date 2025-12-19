@@ -49,29 +49,33 @@ class AudioEngine {
 
     playNote(noteName, instrumentId, volumeHex, trackGainNode, waveType = 'sawtooth') {
         this.checkContext();
-        if (noteName === '---') return;
+        if (noteName === '---' || noteName === '===') return null;
 
         const freq = this.noteToFreq(noteName);
-        if (!freq) return;
+        if (!freq) return null;
 
         const osc = this.audioCtx.createOscillator();
+        const gainNode = this.audioCtx.createGain();
+        
         osc.type = waveType; 
         osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
 
-        const gainNode = this.audioCtx.createGain();
+
         let volVal = 0.5;
         if (volumeHex && volumeHex !== '--') {
         volVal = parseInt(volumeHex, 16) / 100; 
         }
         
-        gainNode.gain.setValueAtTime(volVal, this.audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.4);
+    // Mantenemos el volumen constante (Sustain infinito)
+    gainNode.gain.setValueAtTime(volVal, this.audioCtx.currentTime);
 
-        osc.connect(gainNode);
-        gainNode.connect(trackGainNode);
+    osc.connect(gainNode);
+    gainNode.connect(trackGainNode);
 
-        osc.start();
-        osc.stop(this.audioCtx.currentTime + 0.5);
+    osc.start();
+    
+    // IMPORTANTE: Devolvemos los nodos para que Track.stopAllVoices() pueda usarlos
+    return { osc, gainNode };
     }
 
     noteToFreq(note) {
@@ -214,6 +218,7 @@ class Track {
         this.analyser.fftSize = 512; 
         this.trackGain.connect(this.analyser);
         this.patternData = Array(64).fill(null).map(() => ({ note: '---', inst: '--', vol: '--', fx: '---' }));
+        this.activeVoices = [];
         this.isMuted = false;
         this.isSolo = false;
     }
@@ -337,29 +342,49 @@ render(container) {
             noteInput.focus();
         });
 
-    noteInput.addEventListener('keydown', (e) => {
+noteInput.addEventListener('keydown', (e) => {
     e.preventDefault();
-    const key = e.key.toLowerCase();
+    const key = e.key; // Usamos e.key sin lowerCase para detectar CapsLock correctamente
     
-    if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (key === 'Delete' || key === 'Backspace') {
         this.updateNoteCell(index, '---');
-        this.updateVolCell(index, '--'); // Limpia volumen si borras nota
-    } else if (KEYBOARD_MAP[key]) {
-        const noteInfo = KEYBOARD_MAP[key];
+        this.updateVolCell(index, '--');
+    } else if (key === 'CapsLock') {
+        // Insertamos el código de Note-Off
+        this.updateNoteCell(index, '===');
+        const nextRow = container.children[index + 1];
+        if (nextRow) nextRow.querySelector('.note-cell').focus();
+    } else if (KEYBOARD_MAP[key.toLowerCase()]) {
+        const noteInfo = KEYBOARD_MAP[key.toLowerCase()];
         const fullNote = noteInfo.note + noteInfo.oct;
         
-        // Insertamos Nota
         this.updateNoteCell(index, fullNote);
-        
-        // Insertamos Volumen por defecto (64 hex = 100 decimal aprox)
         this.updateVolCell(index, '64'); 
         
-        this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
+        // Al tocar manualmente, también gestionamos la voz
+        this.stopAllVoices();
+        const voice = this.audioEngine.playNote(fullNote, '01', '64', this.trackGain, this.waveType);
+        if (voice) this.activeVoices.push(voice);
         
         const nextRow = container.children[index + 1];
         if (nextRow) nextRow.querySelector('.note-cell').focus();
-             }
-        });
+    }
+});
+
+stopAllVoices() {
+    this.activeVoices.forEach(v => {
+        try {
+            // Bajamos volumen instantáneamente para evitar el "clic"
+            v.gainNode.gain.cancelScheduledValues(this.audioEngine.audioCtx.currentTime);
+            v.gainNode.gain.setValueAtTime(0, this.audioEngine.audioCtx.currentTime);
+            v.osc.stop();
+        } catch(e) {
+            // En caso de que ya estuviera detenido
+        }
+    });
+    this.activeVoices = [];
+}
+        
         const volInput = row.querySelector('.vol-cell');
 
 volInput.addEventListener('keydown', (e) => {
@@ -572,30 +597,44 @@ playRow() {
     // --- LÓGICA DE AUDIO ---
     const anySolo = this.tracks.some(t => t.isSolo);
 
-    this.tracks.forEach(track => {
+this.tracks.forEach(track => {
+        // 1. Validar si la pista debe sonar (Mute/Solo)
+        const anySolo = this.tracks.some(t => t.isSolo);
         const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
-        if (shouldBeSilent) return; 
 
         const index = this.currentRow % track.patternData.length;
         const rowData = track.patternData[index];
 
-        // 3. Si hay una nota válida en esta celda
-        if (rowData && rowData.note !== '---') {
-            // EFECTO VISUAL: Destello en la fila que está sonando
-            const rowEl = track.element.querySelectorAll('.tracker-row')[index];
-            if (rowEl) {
-                rowEl.classList.add('flash');
-                setTimeout(() => rowEl.classList.remove('flash'), 100);
-            }
+        // 2. CORTE SECO (Note-Off)
+        // Se ejecuta incluso si está en mute para asegurar que no queden notas "colgadas"
+        if (rowData.note === '===') {
+            track.stopAllVoices();
+        } 
+        
+        // 3. DISPARO DE NOTA (Solo si no está en silencio)
+        else if (rowData && rowData.note !== '---') {
+            // Siempre detenemos la nota anterior antes de tocar la nueva (Comportamiento Mono Tracker)
+            track.stopAllVoices(); 
 
-            // MOTOR DE AUDIO: Enviamos la nota, volumen y el tipo de onda elegido en el selector
-            this.audioEngine.playNote(
-                rowData.note, 
-                rowData.inst, 
-                rowData.vol, 
-                track.trackGain, 
-                track.waveType,
-            );
+            if (!shouldBeSilent) {
+                const voice = this.audioEngine.playNote(
+                    rowData.note, 
+                    rowData.inst, 
+                    rowData.vol, 
+                    track.trackGain, 
+                    track.waveType
+                );
+                
+                // Guardamos la referencia para poder cortarla después con '==='
+                if (voice) track.activeVoices.push(voice);
+
+                // EFECTO VISUAL: Destello
+                const rowEl = track.element.querySelectorAll('.tracker-row')[index];
+                if (rowEl) {
+                    rowEl.classList.add('flash');
+                    setTimeout(() => rowEl.classList.remove('flash'), 100);
+                }
+            }
         }
     });
 
