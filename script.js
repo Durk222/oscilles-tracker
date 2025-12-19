@@ -137,6 +137,7 @@ draw(patternData, offsetY = 0) {
         }
     });
     this.ctx.restore();
+  }
 }
 // --- VISUALIZADOR DE AUDIO ---
 class AudioVisualizer {
