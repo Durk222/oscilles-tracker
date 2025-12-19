@@ -514,21 +514,18 @@ class AppController {
         this.isPlaying = false;
         document.getElementById('playBtn').textContent = 'PLAY';
         clearInterval(this.intervalId);
+        
+        //LIMPIEZA EN EL SCROLL
         this.currentRow = 0;
         this.updatePlayheadPosition();
+        document.querySelectorAll('.tracker-row').forEach(row => row.classList.remove('flash'));
     }
 
 playRow() {
-    // 1. Comprobamos si hay alguna pista con el botón SOLO activo en todo el rack
     const anySolo = this.tracks.some(t => t.isSolo);
 
     this.tracks.forEach(track => {
-        // 2. Definimos la lógica de silencio:
-        // - Si la pista tiene Mute activo -> SILENCIO
-        // - Si hay alguna otra pista en Solo y esta NO lo está -> SILENCIO
         const shouldBeSilent = track.isMuted || (anySolo && !track.isSolo);
-
-        // Si debe estar en silencio, saltamos esta iteración del bucle para esta pista
         if (shouldBeSilent) return; 
 
         const index = this.currentRow % track.patternData.length;
@@ -554,9 +551,17 @@ playRow() {
         }
     });
 
-    // 4. Actualizamos la posición visual del tracker (scroll) y avanzamos la fila
+    // 1. Actualizamos la posición visual con el valor actual
     this.updatePlayheadPosition();
-    this.currentRow++;
+    
+    // 2. Calculamos el siguiente paso
+    // Buscamos la longitud máxima para saber cuándo resetear el ciclo global
+    const maxLen = this.tracks.length > 0 
+        ? Math.max(...this.tracks.map(t => t.patternData.length)) 
+        : 64;
+
+    // 3. Incrementamos una sola vez usando el módulo para que nunca crezca al infinito
+    this.currentRow = (this.currentRow + 1) % maxLen;
 }
 updatePlayheadPosition() {
         this.tracks.forEach(track => {
