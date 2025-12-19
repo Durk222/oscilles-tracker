@@ -16,7 +16,10 @@
                 <button id="playBtn">PLAY</button>
                 <button id="stopBtn">STOP</button>
                 <button id="addTrackBtn" style="background: #22ff88; color: #000; font-weight: bold;">+ ADD TRACK</button>
-                <div class="bpm-display">130.00 BPM</div>
+                <div class="bpm-container">
+                     <label for="bpmInput">BPM</label>
+                     <input type="number" id="bpmInput" value="130" min="20" max="400">
+                </div>
             </div>
         </header>
         <div class="rack-body" id="rackBody">
